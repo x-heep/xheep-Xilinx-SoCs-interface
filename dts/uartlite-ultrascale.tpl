@@ -16,12 +16,9 @@
                 reg = <0x0 0x######## 0x0 0x10000>;
 
                 interrupt-parent = <&gic>;
-                interrupts = <0 89 4>;
+                interrupts = <0 90 1>;
 
-                clocks = <&zynqmp_clk 71>;
-                clock-names = "s_axi_aclk";
-
-                current-speed = <115200>;
+                current-speed = <9600>;
                 xlnx,data-bits = <8>;
                 xlnx,use-parity = <0>;
             };

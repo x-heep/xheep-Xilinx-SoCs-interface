@@ -1,0 +1,14 @@
+git
+build-essential
+autoconf
+automake
+libtool
+pkg-config
+libusb-1.0-0-dev
+libftdi1-dev
+libhidapi-dev
+device-tree-compiler
+texinfo
+libncurses5-dev
+libusb-dev
+picocom

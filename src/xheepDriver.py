@@ -100,7 +100,6 @@ class xheepGPIO:
 
 
 class xheepUART:
-    DTS_TEMPLATE_PATH = Path("dts/uartlite-overlay.tpl")
     DTS_PATCHED_PATH = Path("dts/uartlite-patched.dts")
     DTBO_PATH = Path("dts/uartlite-overlay.dtbo")
 
@@ -115,11 +114,19 @@ class xheepUART:
     def __init__(self, memAddr: int):
         self.memAddr = int(memAddr)
         self.PLATFORM_DEV = f"{self.memAddr:08x}.serial"
+        
+        # Select template based on BOARD environment variable
+        board = os.getenv("BOARD", "pynq-z2").lower()
+        if board == "aup-zu3":
+            self.DTS_TEMPLATE_PATH = Path("dts/uartlite-ultrascale.tpl")
+        else:
+            self.DTS_TEMPLATE_PATH = Path("dts/uartlite-zynq.tpl")
 
     def _patchDts(self) -> None:
         content = self.DTS_TEMPLATE_PATH.read_text()
         patched = content.replace("########", f"{self.memAddr:08x}")
         self.DTS_PATCHED_PATH.write_text(patched)
+        log("info", f"Using template: {self.DTS_TEMPLATE_PATH}")
         log("info", f"Patched DTS with address 0x{self.memAddr:08x}")
 
     def _dtsCompile(self) -> None:

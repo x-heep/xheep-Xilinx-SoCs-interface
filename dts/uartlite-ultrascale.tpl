@@ -1,26 +1,30 @@
 /dts-v1/;
 /plugin/;
 
- / {
-   fragment@0 {
-     target-path = "/axi";
-     __overlay__ {
-       serial@######## {
-         compatible = "xlnx,axi-uartlite-2.0", "xlnx,xps-uartlite-1.00.a";
-         status = "okay";
+/ {
+    fragment@0 {
+        target-path = "/axi";
 
-         reg = <0x######## 0x00010000>;
+        __overlay__ {
+            #address-cells = <2>;
+            #size-cells = <2>;
 
-         interrupt-parent = <&intc>;
-         interrupts = <0 30 1>;
+            serial@######## {
+                compatible = "xlnx,axi-uartlite-2.0", "xlnx,xps-uartlite-1.00.a";
+                status = "okay";
 
-         clocks = <&clkc 0x0000000f>;
-         clock-names = "s_axi_aclk";
+                reg = <0x0 0x######## 0x0 0x10000>;
 
-         current-speed = <9600>;
-         xlnx,data-bits = <8>;
-         xlnx,use-parity = <0>;
-       };
-     };
-   };
- };
+                interrupt-parent = <&gic>;
+                interrupts = <0 89 4>;
+
+                clocks = <&zynqmp_clk 71>;
+                clock-names = "s_axi_aclk";
+
+                current-speed = <115200>;
+                xlnx,data-bits = <8>;
+                xlnx,use-parity = <0>;
+            };
+        };
+    };
+};

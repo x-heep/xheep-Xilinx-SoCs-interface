@@ -24,5 +24,3 @@ if [ -f "$GIT_DIFF_PY" ]; then
 else
   echo "Warning: util/git-diff.py not found at $GIT_DIFF_PY"
 fi
-
-echo "OpenOCD build/install requested; if 'sudo make install' was run, OpenOCD should be available as 'openocd'."

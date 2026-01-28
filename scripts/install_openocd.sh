@@ -35,8 +35,8 @@ git submodule update --init --recursive
 echo "Preparing build"
 ./bootstrap
 
-echo "Configuring build with FTDI, bitbang and internal JimTcl support"
-./configure --enable-ftdi --enable-bitbang --enable-jim || true
+echo "Configuring build with FTDI, bitbang, XVC and internal JimTcl support"
+./configure --enable-ftdi --enable-bitbang --enable-xlnx-axi-xvc --enable-jim || true
 
 echo "Building OpenOCD (this may take a while)"
 make -j"$(nproc)"

@@ -26,8 +26,8 @@ git reset --hard "${TAG}"
 
 if [ -f "${PATCH_PATH}" ]; then
   echo "Applying patch: ${PATCH_PATH}"
-  # Apply patch using patch command with automatic input
-  patch -p1 -i "${PATCH_PATH}" --no-backup-if-mismatch -N || {
+  # Apply patch using patch command with force flag to skip interactive prompts
+  patch -p1 --no-backup-if-mismatch --force < "${PATCH_PATH}" 2>&1 || {
     echo "Warning: Patch application had issues, but continuing..."
   }
   git add -A || true

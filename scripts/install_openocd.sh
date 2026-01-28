@@ -26,14 +26,12 @@ git reset --hard "${TAG}"
 
 if [ -f "${PATCH_PATH}" ]; then
   echo "Applying patch: ${PATCH_PATH}"
-  # Apply patch using patch command
-  if patch -p1 < "${PATCH_PATH}"; then
-    echo "Patch applied successfully"
-    git add -A || true
-    git commit -m "Apply x-heep patch" || true
-  else
+  # Apply patch using patch command with automatic input
+  patch -p1 -i "${PATCH_PATH}" --no-backup-if-mismatch -N || {
     echo "Warning: Patch application had issues, but continuing..."
-  fi
+  }
+  git add -A || true
+  git commit -m "Apply x-heep patch" || true
 else
   echo "No patch file found at ${PATCH_PATH}; skipping"
 fi

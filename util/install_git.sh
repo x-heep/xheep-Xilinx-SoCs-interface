@@ -1,4 +1,3 @@
-#!/usr/bin/env bash
 set -euo pipefail
 
 # Clone, patch, build and install OpenOCD v0.12.0

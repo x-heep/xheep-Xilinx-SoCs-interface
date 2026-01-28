@@ -1,4 +1,3 @@
-#!/usr/bin/env bash
 set -euo pipefail
 
 # Install apt packages listed in this repository's util/apt-requirements.txt

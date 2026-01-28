@@ -4,6 +4,7 @@
  / {
    fragment@0 {
      target-path = "/axi";
+
      __overlay__ {
        serial@######## {
          compatible = "xlnx,axi-uartlite-2.0", "xlnx,xps-uartlite-1.00.a";

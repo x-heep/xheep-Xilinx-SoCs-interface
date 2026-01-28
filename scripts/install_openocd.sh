@@ -1,4 +1,3 @@
-#!/usr/bin/env bash
 set -euo pipefail
 
 # Script to fetch, patch, build and install OpenOCD v0.12.0

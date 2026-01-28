@@ -25,15 +25,15 @@ git checkout "${TAG}" || git checkout -B "build-${TAG}" "${TAG}"
 git reset --hard "${TAG}"
 
 if [ -f "${PATCH_PATH}" ]; then
-  echo "Applying patch: ${PATCH_PATH} (using git apply)"
-  git apply --index "${PATCH_PATH}" || true
-  # show diff summary using util/git-diff.py if available
-  if [ -f "${GIT_DIFF_PY}" ]; then
-    echo "Reporting diff summary with util/git-diff.py"
-    python "${GIT_DIFF_PY}" || true
+  echo "Applying patch: ${PATCH_PATH}"
+  # Apply patch using patch command
+  if patch -p1 < "${PATCH_PATH}"; then
+    echo "Patch applied successfully"
+    git add -A || true
+    git commit -m "Apply x-heep patch" || true
+  else
+    echo "Warning: Patch application had issues, but continuing..."
   fi
-  git add -A || true
-  git commit -m "Apply x-heep patch" || true
 else
   echo "No patch file found at ${PATCH_PATH}; skipping"
 fi

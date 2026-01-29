@@ -21,10 +21,7 @@ git checkout "${TAG}" || git checkout -B "build-${TAG}" "${TAG}"
 git reset --hard "${TAG}"
 
 echo "Applying patch: ${PATCH_PATH}"
-# Apply patch using patch command with force flag to skip interactive prompts
-patch -p1 --no-backup-if-mismatch --force < "${PATCH_PATH}" 2>&1 || {
-  echo "Warning: Patch application had issues, but continuing..."
-}
+patch -p1 --no-backup-if-mismatch --force < "${PATCH_PATH}" >/dev/null 2>&1 || true
 
 git add -A || true
 git commit -m "Apply x-heep patch" || true

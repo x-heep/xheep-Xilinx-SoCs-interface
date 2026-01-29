@@ -108,7 +108,7 @@ python src/xheepRun.py \
 Once the dynamic overlay is injected *(Step 3 of the Execution Flow)*, the AXI UART is exposed as `/dev/ttyUL0`. You can connect to it using `picocom` at the default baud rate of 9600:
 
 ```bash
-picocom -b 9600 /dev/ttyUL0
+sudo picocom -b 9600 --imap lfcrlf /dev/ttyUL0
 ```
 
 ---

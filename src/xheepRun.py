@@ -6,10 +6,22 @@ import subprocess
 import sys
 import time
 import telnetlib
+import serial
 from pathlib import Path
 from typing import Optional, Tuple
 
 STATE_FILE = Path("/tmp/.xheep_state")
+TTY_DEVICE = "/dev/ttyUL0"
+
+def flush_uart():
+    """Flush UART RX/TX buffers to avoid stale data."""
+    try:
+        ser = serial.Serial(TTY_DEVICE, 9600, timeout=0.1)
+        ser.reset_input_buffer()
+        ser.reset_output_buffer()
+        ser.close()
+    except:
+        pass
 
 def file_hash(p: Path) -> str:
     h = hashlib.sha256()
@@ -132,7 +144,7 @@ def main() -> int:
     xheep.gpio.bootFromJTAG()
     xheep.gpio.resetJTAG()
     xheep.gpio.resetXheep()
-    time.sleep(0.05)
+    time.sleep(0.1)
 
     v, e = xheep.gpio.getExitCode()
     if v == 1 or e == 1:
@@ -161,6 +173,7 @@ def main() -> int:
             else:
                 print("[WARN] Verification failed", file=sys.stderr)
 
+        flush_uart()
         ocd_cmd(["targets riscv0", f"resume 0x{entry:08x}"], timeout=15.0)
 
         v, e = xheep.gpio.getExitCode()

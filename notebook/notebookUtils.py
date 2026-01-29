@@ -153,7 +153,7 @@ def run(fw, verify=False):
     finally:
         _s.stop_ocd()
 
-def _serial_widget():
+def serialWidget():
     out = widgets.Output(layout=widgets.Layout(width='100%', height='250px', border='1px solid #ccc', overflow='auto'))
     btn_s = widgets.Button(description="▶", button_style='success')
     btn_x = widgets.Button(description="⏹", button_style='danger', disabled=True)

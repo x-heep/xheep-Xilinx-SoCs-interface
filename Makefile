@@ -15,6 +15,4 @@ install:
 	@sudo bash -c "grep -qxF 'cd /home/xilinx' /root/.bashrc || echo 'cd /home/xilinx' >> /root/.bashrc"
 
 clean:
-	@if [ -d openocd ]; then \
-		$(MAKE) -C openocd clean-recursive || true; \
-	fi
+	@echo "Nothing to clean yet"

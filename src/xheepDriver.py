@@ -126,8 +126,6 @@ class xheepUART:
         content = self.DTS_TEMPLATE_PATH.read_text()
         patched = content.replace("########", f"{self.memAddr:08x}")
         self.DTS_PATCHED_PATH.write_text(patched)
-        log("info", f"Using template: {self.DTS_TEMPLATE_PATH}")
-        log("info", f"Patched DTS with address 0x{self.memAddr:08x}")
 
     def _dtsCompile(self) -> None:
         argv = ["dtc", "-@", "-I", "dts", "-O", "dtb", "-o", str(self.DTBO_PATH), str(self.DTS_PATCHED_PATH)]
@@ -214,7 +212,6 @@ class xheepUART:
             sys.exit(1)
 
         try:
-            log("info", f"Loading overlay: {self.OVERLAY_NAME}")
             self.OVL_DIR.mkdir(parents=True, exist_ok=False)
             (self.OVL_DIR / "dtbo").write_bytes(self.DTBO_PATH.read_bytes())
         except Exception as e:
@@ -228,12 +225,9 @@ class xheepUART:
 
         dev = Path("/sys/bus/platform/devices") / self.PLATFORM_DEV
         self._wait(lambda: dev.exists(), self.TIMEOUT_S, "platform device appearance")
-        log("info", f"Platform device created: {self.PLATFORM_DEV}")
 
         driver_link = dev / "driver"
-        if driver_link.exists():
-            log("info", "UART driver already bound by kernel auto-probe")
-        else:
+        if not driver_link.exists():
             bind_path = Path("/sys/bus/platform/drivers") / self.DRIVER_NAME / "bind"
             if not bind_path.exists():
                 subprocess.run(["modprobe", self.DRIVER_NAME], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -252,17 +246,14 @@ class xheepUART:
                 sys.exit(1)
 
         self._wait(lambda: (dev / "driver").exists(), self.TIMEOUT_S, "driver bind confirmation")
-        log("info", "Bound UART driver successfully")
 
         self._wait(lambda: self.TTY_NODE.exists(), self.TIMEOUT_S, "tty node creation")
-        log("info", f"Created tty node: {self.TTY_NODE}")
 
         try:
             file_stats = self.TTY_NODE.stat()
             if not stat.S_ISCHR(file_stats.st_mode):
                 log("critical", f"{self.TTY_NODE} exists but is not a character device.")
                 sys.exit(1)
-            log("info", "Device node verification passed.")
         except Exception as e:
             log("critical", f"Cannot access device node: {e}")
             sys.exit(1)
@@ -305,12 +296,7 @@ class xheepDriver(Overlay):
         self.AXI_JTAG_ADDR = int(jtag_ip["phys_addr"])
         self.AXI_JTAG_RNG  = int(jtag_ip["addr_range"])
 
-        log("info", f"MMIO axi_gpio     : 0x{self.AXI_GPIO_ADDR:08x} (+0x{self.AXI_GPIO_RNG:x})")
-        log("info", f"MMIO axi_uartlite : 0x{self.AXI_UART_ADDR:08x} (+0x{self.AXI_UART_RNG:x})")
-        log("info", f"MMIO axi_jtag     : 0x{self.AXI_JTAG_ADDR:08x} (+0x{self.AXI_JTAG_RNG:x})")
-
         self.uart = xheepUART(self.AXI_UART_ADDR)
-        log("info", "UART: unbind before PL.reset()")
         self.uart.unbind()
 
         # Reset programmable logic and then download bitstream
@@ -321,5 +307,4 @@ class xheepDriver(Overlay):
         self.jtag = xheepJTAG(self, self.AXI_JTAG_ADDR, self.AXI_JTAG_RNG)
 
         # Rebind UART overlay after bitstream load (per requirement)
-        log("info", "UART: bind after bitstream load")
         self.uart.bind()

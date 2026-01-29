@@ -4,11 +4,10 @@ set -euo pipefail
 # Usage: ./install_openocd.sh [target_dir]
 
 REPO_URL="https://github.com/openocd-org/openocd.git"
-TAG="v0.12.0"
+TAG="b9e40161613fd880fc85fdb357365b70e646ff23"
 # patch file in repository root
 PATCH_PATH="$(cd "$(dirname "$0")/.." && pwd)/patch/openocd.patch"
 TARGET_DIR="${1:-/usr/local/src/openocd}"
-GIT_DIFF_PY="$(cd "$(dirname "$0")/.." && pwd)/util/git-diff.py"
 
 echo "OpenOCD target: ${TARGET_DIR}"
 git clone "${REPO_URL}" "${TARGET_DIR}"
@@ -33,7 +32,7 @@ echo "Preparing build"
 ./bootstrap
 
 echo "Configuring build with FTDI, bitbang, XVC and internal JimTcl support"
-./configure --enable-ftdi --enable-bitbang --enable-xlnx-axi-xvc --enable-jim || true
+./configure --enable-ftdi --enable-bitbang --enable-xlnx-axi-xvc --enable-internal-jimtcl
 
 echo "Building OpenOCD (this may take a while)"
 make -j"$(nproc)"

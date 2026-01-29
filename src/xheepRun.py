@@ -81,9 +81,6 @@ def start_openocd(cfg_path: Path, log_file: Optional[Path], xvc_dev_addr: int ) 
         "-f",
         str(cfg_path),
     ]
-    log("info", "Launching OpenOCD:")
-    log("info", " ".join(argv))
-
     log_file.parent.mkdir(parents=True, exist_ok=True)
     fh = open(log_file, "wb", buffering=0)
     proc = subprocess.Popen(argv, stdout=fh, stderr=fh)
@@ -116,13 +113,12 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("-o", "--overlay", required=True, help="Path to .bit overlay")
     ap.add_argument("-f", "--firmware", required=True, help="Path to firmware .elf")
-    ap.add_argument("-c", "--cfg", required=True, help="Path to OpenOCD .cfg")
     ap.add_argument("--verify", action="store_true", help="Run verify_image after load_image")
     args = ap.parse_args()
 
     bitfile = Path(args.overlay).resolve()
     fwfile = Path(args.firmware).resolve()
-    cfgfile = Path(args.cfg).resolve()
+    cfgfile = Path("cfg/xheep_xilinx_xvc.cfg").resolve()
 
     for p, label in ((bitfile, "overlay"), (fwfile, "firmware"), (cfgfile, "cfg")):
         if not p.is_file():
@@ -133,20 +129,15 @@ def main() -> int:
     run_dir.mkdir(parents=True, exist_ok=True)
 
     openocd_log = run_dir / "openocd.log"
-    log("info", f"OpenOCD log: {openocd_log}")
 
-    log("info", "Loading overlay...")
     xheep = xheepDriver(str(bitfile))
 
     xvc_addr = xheep.jtag.getAddr()
-    log("info", f"Using XVC_DEV_ADDR=0x{xvc_addr:08x}")
 
     input("Press Enter to program and run the application...")
 
-    log("info", "Setting boot mode to JTAG...")
     xheep.gpio.bootFromJTAG()
 
-    log("info", "Resetting JTAG (TRST) and core...")
     xheep.gpio.resetJTAG()
     xheep.gpio.resetXheep()
     time.sleep(0.05)
@@ -157,9 +148,6 @@ def main() -> int:
 
     hdr = fwfile.read_bytes()[:0x34]
     entry = struct.unpack_from("<I", hdr, 0x18)[0]
-
-    log("info", f"Firmware: {fwfile}")
-    log("info", f"ELF entry point: 0x{entry:08x}")
 
     proc, proc_fh = start_openocd(cfgfile, openocd_log, xvc_addr)
 
@@ -176,9 +164,16 @@ def main() -> int:
         if args.verify:
             cmds.append(f"verify_image {fwq}")
 
-        out = openocd_telnet_batch(cmds, timeout_s=60.0)
+        output = openocd_telnet_batch(cmds, timeout_s=60.0)
 
-        _ = openocd_telnet_batch(["targets riscv0", f"resume 0x{entry:08x}"], timeout_s=15.0)
+        if args.verify:
+            if "verified" in output.lower() and "error" not in output.lower():
+                log("info", "Firmware verification: PASSED")
+            else:
+                log("error", "Firmware verification: FAILED")
+                log("error", f"Verify output: {output}")
+
+        openocd_telnet_batch(["targets riscv0", f"resume 0x{entry:08x}"], timeout_s=15.0)
 
         v, e = xheep.gpio.getExitCode()
         while not v:

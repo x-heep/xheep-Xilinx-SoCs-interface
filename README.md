@@ -21,8 +21,9 @@ The project acts as a bridge between the Xilinx ARM-based Processing System and 
 | Board   | Status    | Notes                                                      |
 | ------- | --------- | ---------------------------------------------------------- |
 | PYNQ-Z2 | Supported | Requires `PS_ENABLE` to be active in the x-heep bitstream. |
+| AUP-ZU3 | Supported | Requires `PS_ENABLE` to be active in the x-heep bitstream. |
 
-> **Important Note:** Ensure that the Vivado version used to implement x-heep is consistent with the PYNQ version installed on the board. For example, if PYNQ 3.0.1 is used, Vivado 2024.x should be used to implement x-heep for full compatibility.
+> **Important Note:** Ensure that the Vivado version used to implement x-heep is consistent with the Linux distribution installed on the board. For example:
 
 ---
 
@@ -36,6 +37,21 @@ sudo make install
 ```
 
 > Note: This requires `sudo` privileges to manage system packages, install OpenOCD, and manipulate the kernel's ConfigFS.
+
+### OpenOCD Build and Patch
+
+During installation, the script automatically:
+
+1. **Clones OpenOCD** from the official repository
+2. **Applies a custom patch** (`patch/openocd.patch`) required for correct operation with the Xilinx Virtual Cable (XVC) and x-heep integration
+3. **Builds OpenOCD** with the following features enabled:
+   - FTDI interface support (`--enable-ftdi`)
+   - Bitbang driver support (`--enable-bitbang`)
+   - Xilinx AXI XVC support (`--enable-xlnx-axi-xvc`)
+   - Internal JimTcl interpreter (`--enable-internal-jimtcl`)
+4. **Installs OpenOCD** system-wide at `/usr/local/bin/openocd`
+
+The patch is necessary to ensure proper communication between OpenOCD and the AXI JTAG IP core in the FPGA fabric.
 
 ---
 
@@ -77,16 +93,15 @@ To program the FPGA and run a firmware image remotely:
 ```bash
 python src/xheepRun.py \
   -o path/to/xheep_top.bit \
-  -f path/to/firmware.elf \
-  -c cfg/xheep_xilinx_xvc.cfg \
-  --log-uart
+  -f path/to/firmware.elf  \
+  --verify
 ```
 
 ### Argument Details
 
-* `-o`: Path to the FPGA bitstream (`.bit`).
-* `-f`: Path to the compiled RISC-V `.elf` firmware.
-* `-c`: OpenOCD configuration file for XVC.
+* `-o`: Path to the FPGA bitstream (`.bit`)
+* `-f`: Path to the compiled RISC-V `.elf` firmware
+* `--verify`: Verify the loaded firmware
 
 ### Monitoring Serial Output
 

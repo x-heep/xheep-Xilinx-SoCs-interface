@@ -3,7 +3,7 @@ ROOT := $(shell pwd)
 USER := xilinx
 NOTEBOOK_DIR := /home/$(USER)/jupyter_notebooks/xheep
 
-.PHONY: help install install_apt install_git install_python install-notebook clean
+.PHONY: help install install-notebook clean
 
 help:
 	@FILE_FOR_HELP=Makefile util/MakefileHelp

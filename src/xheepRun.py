@@ -127,6 +127,8 @@ def main() -> int:
 
     xvc_addr = xheep.jtag.getAddr()
 
+    input("Press Enter to program and run...")
+
     xheep.gpio.bootFromJTAG()
     xheep.gpio.resetJTAG()
     xheep.gpio.resetXheep()

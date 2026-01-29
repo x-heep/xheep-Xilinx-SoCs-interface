@@ -63,7 +63,7 @@ class _S:
             self.ocd = self.ocd_fh = None
     def clean(self): self.stop_ser(); self.stop_ocd()
 
-_s = _S()
+ctrl = _S()
 
 def _tcp(h, p, t):
     dl = time.monotonic() + t
@@ -98,10 +98,10 @@ def init(bit, force=False):
         display(_b(f"❌ {p}", False))
         return False
     
-    if force or _s.changed(p):
-        _s.drv = xheepDriver(str(p))
-        _s.upd(p)
-        _s.ok = True
+    if force or ctrl.changed(p):
+        ctrl.drv = xheepDriver(str(p))
+        ctrl.upd(p)
+        ctrl.ok = True
     
     display(_b("✓ Ready"))
     return True
@@ -111,7 +111,7 @@ def run(fw, verify=False):
     cfg = Path("cfg/xheep_xilinx_xvc.cfg").resolve()
     log = Path("xheep_logs/openocd.log")
     
-    if not _s.ok: 
+    if not ctrl.ok: 
         display(_b("❌ Not initialized", False))
         return
     if not p.is_file(): 
@@ -119,16 +119,16 @@ def run(fw, verify=False):
         return
     
     try:
-        _s.stop_ocd()
-        _s.drv.gpio.bootFromJTAG()
-        _s.drv.gpio.resetJTAG()
-        _s.drv.gpio.resetXheep()
+        ctrl.stop_ocd()
+        ctrl.drv.gpio.bootFromJTAG()
+        ctrl.drv.gpio.resetJTAG()
+        ctrl.drv.gpio.resetXheep()
         time.sleep(0.05)
         
         entry = struct.unpack_from("<I", p.read_bytes()[:0x34], 0x18)[0]
-        _s.ocd, _s.ocd_fh = _ocd(cfg, log, _s.drv.jtag.getAddr())
+        ctrl.ocd, ctrl.ocd_fh = _ocd(cfg, log, ctrl.drv.jtag.getAddr())
         time.sleep(0.2)
-        if _s.ocd.poll() is not None: 
+        if ctrl.ocd.poll() is not None: 
             display(_b("❌ OpenOCD failed", False))
             return
         
@@ -140,18 +140,18 @@ def run(fw, verify=False):
         _cmd(cmds, t=60)
         _cmd(["targets riscv0", f"resume 0x{entry:08x}"], t=15)
         
-        v, e = _s.drv.gpio.getExitCode()
+        v, e = ctrl.drv.gpio.getExitCode()
         while not v: 
-            time.sleep(0.01); v, e = _s.drv.gpio.getExitCode()
+            time.sleep(0.01); v, e = ctrl.drv.gpio.getExitCode()
         
         display(_b(f"exit_valid={v} | exit_value={e}", e == 0))
         return (v, e)
     except KeyboardInterrupt:
-        v, e = _s.drv.gpio.getExitCode()
+        v, e = ctrl.drv.gpio.getExitCode()
         display(_b(f"Interrupted: {v},{e}", False))
         return (v, e)
     finally:
-        _s.stop_ocd()
+        ctrl.stop_ocd()
 
 def serialWidget():
     out = widgets.Output(layout=widgets.Layout(width='100%', height='250px', border='1px solid #ccc', overflow='auto'))
@@ -162,7 +162,7 @@ def serialWidget():
     def _rd():
         try:
             ser = serial.Serial("/dev/ttyUL0", 9600, timeout=0.1)
-            while not _s.ser_stop.is_set():
+            while not ctrl.ser_stop.is_set():
                 d = ser.read(256)
                 if d:
                     with out: print(d.decode(errors='replace'), end='')
@@ -171,12 +171,12 @@ def serialWidget():
             with out: print(f"[{e}]")
 
     def _on_s(b):
-        _s.ser_stop.clear()
-        _s.ser_t = threading.Thread(target=_rd, daemon=True); _s.ser_t.start()
+        ctrl.ser_stop.clear()
+        ctrl.ser_t = threading.Thread(target=_rd, daemon=True); ctrl.ser_t.start()
         btn_s.disabled, btn_x.disabled = True, False
 
     def _on_x(b): 
-        _s.stop_ser()
+        ctrl.stop_ser()
         btn_s.disabled, btn_x.disabled = False, True
 
     btn_s.on_click(_on_s)

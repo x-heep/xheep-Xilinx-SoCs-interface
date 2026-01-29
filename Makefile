@@ -1,5 +1,6 @@
 SHELL := /bin/bash
 ROOT := $(shell pwd)
+USER := xilinx
 NOTEBOOK_DIR := /home/$(USER)/jupyter_notebooks/xheep
 
 .PHONY: help install install_apt install_git install_python install-notebook clean
@@ -16,6 +17,7 @@ install:
 	@sudo bash -c "grep -qxF 'cd /home/xilinx' /root/.bashrc || echo 'cd /home/xilinx' >> /root/.bashrc"
 
 ## Install notebook and dependencies to jupyter_notebooks
+## @param USER=xilinx(default)
 install-notebook:
 	@bash util/install_python.sh
 	@mkdir -p $(NOTEBOOK_DIR)/src

@@ -134,6 +134,7 @@ def main() -> int:
 
     xvc_addr = xheep.jtag.getAddr()
 
+    log("info", "UART console is available at /dev/ttyUL0 (9600 8N1)")
     input("Press Enter to program and run the application...")
 
     xheep.gpio.bootFromJTAG()

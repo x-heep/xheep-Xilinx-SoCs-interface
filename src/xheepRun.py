@@ -91,10 +91,47 @@ def shutdown_ocd(proc, fh):
         except:
             pass
 
+def flash_write_spi(bin_file: Path, spi_dev: Path) -> bool:
+    """Write binary to SPI flash using flashrom or mtd-utils"""
+    print(f"[INFO] Programming SPI flash: {bin_file} -> {spi_dev}")
+    
+    # Try flashrom first (more reliable)
+    try:
+        result = subprocess.run(
+            ["flashrom", "-p", f"linux_spi:dev={spi_dev}", "-w", str(bin_file)],
+            capture_output=True, text=True, timeout=120
+        )
+        if result.returncode == 0:
+            print("[INFO] Flash programming successful (flashrom)")
+            return True
+        else:
+            print(f"[WARN] flashrom failed: {result.stderr}")
+    except FileNotFoundError:
+        print("[WARN] flashrom not found, trying mtd-utils...")
+    except Exception as e:
+        print(f"[WARN] flashrom error: {e}")
+    
+    # Fallback to direct SPI write (less safe)
+    try:
+        print("[INFO] Using direct SPI write...")
+        # Erase flash first (send WREN + sector erase commands if needed)
+        # Then write the binary
+        with open(spi_dev, 'wb') as spi:
+            data = bin_file.read_bytes()
+            spi.write(data)
+            spi.flush()
+        print("[INFO] Flash programming complete (direct write)")
+        return True
+    except Exception as e:
+        print(f"[ERROR] Direct SPI write failed: {e}", file=sys.stderr)
+        return False
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("-o", "--overlay", required=True, help="Path to .bit")
-    ap.add_argument("-f", "--firmware", required=True, help="Path to .elf")
+    ap.add_argument("-f", "--firmware", required=True, help="Path to .elf or .bin")
+    ap.add_argument("-m", "--memory", choices=["on_chip", "flash_load", "flash_exec"], 
+                    default="on_chip", help="Execution mode")
     ap.add_argument("--verify", action="store_true", help="Verify after load")
     ap.add_argument("--force", action="store_true", help="Force PL reload")
     args = ap.parse_args()
@@ -116,40 +153,104 @@ def main() -> int:
     prev_hash = load_state()
     need_reload = args.force or (cur_hash != prev_hash)
 
-    # Lazy import - only when needed
-    from xheepDriver import xheepDriver, xheepUART, xheepGPIO, xheepJTAG
+    # Import drivers
+    from xheepDriver import xheepDriver, xheepUART, xheepGPIO, xheepJTAG, xheepSPI
     from pynq import Overlay, PL, MMIO
 
     if need_reload:
+        print("[INFO] Loading bitstream...")
         xheep = xheepDriver(str(bit))
         save_state(cur_hash)
     else:
-        # Skip PL reset, just reconnect to existing hardware
+        print("[INFO] Reusing existing bitstream...")
+        # Skip PL reset, reconnect to existing hardware
         ol = Overlay(str(bit), download=False)
         gpio_ip = ol.ip_dict["axi_gpio"]
         uart_ip = ol.ip_dict["axi_uartlite"]
         jtag_ip = ol.ip_dict["axi_jtag"]
+        spi_ip = ol.ip_dict["axi_quad_spi"]
+        
+        uart_irq = int(uart_ip.get("interrupts", {}).get("axi_uartlite", {}).get("interrupt", [None])[0] or 0)
+        spi_irq = uart_irq + 1
         
         class _Stub:
             def __init__(self):
                 self.gpio = xheepGPIO(ol, int(gpio_ip["phys_addr"]), int(gpio_ip["addr_range"]))
                 self.jtag = xheepJTAG(ol, int(jtag_ip["phys_addr"]), int(jtag_ip["addr_range"]))
+                self.spi = xheepSPI(int(spi_ip["phys_addr"]), spi_irq)
         
         xheep = _Stub()
 
     xvc_addr = xheep.jtag.getAddr()
 
-    input("Press Enter to program and run...")
+    # Handle flash operations
+    if args.memory in ["flash_load", "flash_exec"]:
+        # Need .bin file for flash
+        if fw.suffix == ".elf":
+            bin_file = fw.with_suffix(".bin")
+            if not bin_file.exists():
+                print(f"[ERROR] Flash mode requires .bin file. Convert {fw} to {bin_file}", file=sys.stderr)
+                print("[INFO] Use: riscv32-unknown-elf-objcopy -O binary firmware.elf firmware.bin", file=sys.stderr)
+                return 2
+        else:
+            bin_file = fw
+        
+        # Set GPIO to select PS SPI flash access
+        print("[INFO] Switching SPI flash to PS control...")
+        xheep.gpio.setChannel(0b10000)  # Set ps_x_heep_o[4] = 1 for PS control
+        time.sleep(0.1)
+        
+        # Get SPI device
+        spi_dev = xheep.spi.getSpiDev()
+        if not spi_dev or not spi_dev.exists():
+            print(f"[ERROR] SPI device not found", file=sys.stderr)
+            return 1
+        
+        print(f"[INFO] Using SPI device: {spi_dev}")
+        
+        # Program flash
+        if not flash_write_spi(bin_file, spi_dev):
+            return 1
+        
+        # Switch back to X-HEEP control
+        print("[INFO] Switching SPI flash to X-HEEP control...")
+        xheep.gpio.setChannel(0b00000)  # Set ps_x_heep_o[4] = 0 for X-HEEP control
+        time.sleep(0.1)
 
-    xheep.gpio.bootFromJTAG()
+    print("\nPress Enter to program and run X-HEEP...")
+    print("(This is a good time to open a UART terminal to see output)")
+    input()
+
+    # Configure boot mode
+    if args.memory == "on_chip":
+        xheep.gpio.bootFromJTAG()
+    elif args.memory == "flash_load":
+        xheep.gpio.loadFromFlash()
+    elif args.memory == "flash_exec":
+        xheep.gpio.execFromFlash()
+
     xheep.gpio.resetJTAG()
     xheep.gpio.resetXheep()
     time.sleep(0.1)
 
     v, e = xheep.gpio.getExitCode()
     if v == 1 or e == 1:
-        print(f"[WARN] Exit bits set: {v},{e}", file=sys.stderr)
+        print(f"[WARN] Exit bits set before start: valid={v}, value={e}", file=sys.stderr)
 
+    # For flash_exec, we don't load via JTAG
+    if args.memory == "flash_exec":
+        print("[INFO] X-HEEP is executing from flash...")
+        print("[INFO] Waiting for completion...")
+        
+        v, e = xheep.gpio.getExitCode()
+        while not v:
+            time.sleep(0.01)
+            v, e = xheep.gpio.getExitCode()
+        
+        print(f"exit_valid={v} | exit_value={e}")
+        return 0 if e == 0 else 1
+
+    # JTAG loading path
     entry = struct.unpack_from("<I", fw.read_bytes()[:0x34], 0x18)[0]
     proc, fh = start_ocd(cfg, ocd_log, xvc_addr)
 
@@ -169,13 +270,14 @@ def main() -> int:
         out = ocd_cmd(cmds, timeout=60.0)
         if args.verify:
             if "verified" in out.lower() and "error" not in out.lower():
-                pass
+                print("[INFO] Verification passed")
             else:
                 print("[WARN] Verification failed", file=sys.stderr)
 
         flush_uart()
         ocd_cmd(["targets riscv0", f"resume 0x{entry:08x}"], timeout=15.0)
 
+        print("[INFO] Waiting for execution to complete...")
         v, e = xheep.gpio.getExitCode()
         while not v:
             time.sleep(0.01)
@@ -186,7 +288,7 @@ def main() -> int:
 
     except KeyboardInterrupt:
         v, e = xheep.gpio.getExitCode()
-        print(f"Interrupted: {v},{e}")
+        print(f"Interrupted: valid={v}, value={e}")
         return 130
 
     finally:

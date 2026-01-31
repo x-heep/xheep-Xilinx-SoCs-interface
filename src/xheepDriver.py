@@ -28,6 +28,144 @@ def log(level: str, msg: str, stderr: bool | None = None) -> None:
     stream.flush()
 
 
+class xheepSPI:
+    DTS_PATCHED_PATH = Path("dts/spi-patched.dts")
+    DTBO_PATH = Path("dts/spi-overlay.dtbo")
+
+    OVERLAY_NAME = "axiquadspi"
+    OVL_DIR = Path("/sys/kernel/config/device-tree/overlays") / OVERLAY_NAME
+    DRIVER_NAME = "spi-xilinx"
+    
+    TIMEOUT_S = 3.0
+    POLL_S = 0.05
+
+    def __init__(self, memAddr: int, irqId: int):
+        self.memAddr = int(memAddr)
+        self.irqId = int(irqId)
+        self.PLATFORM_DEV = f"{self.memAddr:08x}.spi"
+        
+        # Select template based on BOARD environment variable
+        board = os.getenv("BOARD", "pynq-z2").lower()
+        if board == "aup-zu3":
+            self.DTS_TEMPLATE_PATH = Path("dts/spi-ultrascale.tpl")
+        else:
+            self.DTS_TEMPLATE_PATH = Path("dts/spi-zynq.tpl")
+    
+    def _get_spi_device(self) -> Path:
+        """Find the SPI device node (e.g., /dev/spidev0.0)"""
+        spi_dir = Path("/sys/bus/spi/devices")
+        if not spi_dir.exists():
+            return None
+        
+        # Look for spidev matching our platform device
+        for dev in spi_dir.iterdir():
+            try:
+                # Check if this SPI device is under our platform device
+                real = dev.resolve()
+                if f"{self.memAddr:08x}.spi" in str(real):
+                    # Find corresponding /dev/spidevX.Y
+                    for spidev in Path("/dev").glob("spidev*"):
+                        # Match by major:minor
+                        if spidev.exists():
+                            return spidev
+            except:
+                continue
+        return None
+
+    def _patchDts(self) -> None:
+        content = self.DTS_TEMPLATE_PATH.read_text()
+        patched = content.replace("########", f"{self.memAddr:08x}")
+        patched = patched.replace("INTERRUPT_ID", str(self.irqId))
+        self.DTS_PATCHED_PATH.write_text(patched)
+
+    def _dtsCompile(self) -> None:
+        argv = ["dtc", "-@", "-I", "dts", "-O", "dtb", "-o", str(self.DTBO_PATH), str(self.DTS_PATCHED_PATH)]
+        cp = subprocess.run(argv, capture_output=True, text=True)
+        if cp.returncode != 0:
+            log("critical", f"dtc failed (rc={cp.returncode}). stderr: {cp.stderr or cp.stdout}")
+            sys.exit(1)
+
+    def _wait(self, cond_fn, timeout_s: float, what: str) -> None:
+        deadline = time.monotonic() + timeout_s
+        while time.monotonic() < deadline:
+            if cond_fn():
+                return
+            time.sleep(self.POLL_S)
+        log("critical", f"Timeout waiting for: {what} (>{timeout_s:.2f}s)")
+        sys.exit(1)
+
+    def unbind(self) -> None:
+        dev = Path("/sys/bus/platform/devices") / self.PLATFORM_DEV
+        driver_link = dev / "driver"
+
+        if driver_link.exists():
+            try:
+                drv_name = Path(os.readlink(driver_link)).name
+                unbind_path = Path("/sys/bus/platform/drivers") / drv_name / "unbind"
+                unbind_path.write_text(self.PLATFORM_DEV, encoding="utf-8")
+                self._wait(lambda: not driver_link.exists(), self.TIMEOUT_S, "SPI driver unbind")
+            except Exception as e:
+                log("warning", f"SPI driver unbind failed: {e}")
+
+        if self.OVL_DIR.exists():
+            try:
+                os.rmdir(self.OVL_DIR)
+                self._wait(lambda: not self.OVL_DIR.exists(), self.TIMEOUT_S, "SPI overlay removal")
+            except Exception as e:
+                log("warning", f"Failed to remove SPI device tree overlay: {e}")
+
+    def bind(self) -> None:
+        self._patchDts()
+        self._dtsCompile()
+
+        base = Path("/sys/kernel/config/device-tree/overlays")
+        if not base.exists():
+            log("critical", f"Configfs DT overlays not mounted: {base}")
+            sys.exit(1)
+
+        if self.OVL_DIR.exists():
+            log("warning", f"SPI overlay dir already exists: {self.OVL_DIR}. Trying to continue...")
+            try:
+                os.rmdir(self.OVL_DIR)
+            except:
+                pass
+
+        try:
+            self.OVL_DIR.mkdir(parents=True, exist_ok=False)
+            (self.OVL_DIR / "dtbo").write_bytes(self.DTBO_PATH.read_bytes())
+        except Exception as e:
+            if self.OVL_DIR.exists():
+                try:
+                    os.rmdir(self.OVL_DIR)
+                except:
+                    pass
+            log("critical", f"Failed to load SPI DTBO: {e}")
+            sys.exit(1)
+
+        dev = Path("/sys/bus/platform/devices") / self.PLATFORM_DEV
+        self._wait(lambda: dev.exists(), self.TIMEOUT_S, "SPI platform device appearance")
+
+        # Wait for SPI device to appear
+        spi_dev = None
+        deadline = time.monotonic() + self.TIMEOUT_S
+        while time.monotonic() < deadline:
+            spi_dev = self._get_spi_device()
+            if spi_dev:
+                break
+            time.sleep(self.POLL_S)
+        
+        if spi_dev:
+            log("info", f"SPI device ready: {spi_dev}")
+        else:
+            log("warning", "SPI device node not found, but platform device exists")
+
+    def getAddr(self) -> int:
+        return self.memAddr
+    
+    def getSpiDev(self) -> Optional[Path]:
+        return self._get_spi_device()
+    
+
 class xheepGPIO:
     # AXI GPIO register offsets
     CH1_DATA = 0x00

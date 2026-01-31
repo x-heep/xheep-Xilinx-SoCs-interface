@@ -1,0 +1,8 @@
+loaded.xclbin
+*.dtbo
+*.dts
+*.elf
+*.bin
+*.bit
+*.hwh
+xheep_logs/

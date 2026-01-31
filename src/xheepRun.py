@@ -91,39 +91,73 @@ def shutdown_ocd(proc, fh):
         except:
             pass
 
-def flash_write_spi(bin_file: Path, spi_dev: Path) -> bool:
-    """Write binary to SPI flash using flashrom or mtd-utils"""
+def flash_write_mtd(bin_file: Path, mtd_dev: Path) -> bool:
+    """Write binary to SPI flash using MTD"""
+    print(f"[INFO] Programming SPI flash: {bin_file} -> {mtd_dev}")
+    
+    file_size = bin_file.stat().st_size
+    print(f"[INFO] Binary size: {file_size} bytes ({file_size/1024:.1f} KB)")
+    
+    try:
+        # Erase the flash
+        print("[INFO] Erasing flash...")
+        result = subprocess.run(
+            ["flash_erase", str(mtd_dev), "0", "0"],
+            capture_output=True, text=True, timeout=30
+        )
+        if result.returncode != 0:
+            print(f"[ERROR] Flash erase failed: {result.stderr}")
+            return False
+        
+        # Write the binary
+        print("[INFO] Writing flash...")
+        with open(mtd_dev, 'wb') as mtd:
+            data = bin_file.read_bytes()
+            mtd.write(data)
+            mtd.flush()
+        
+        print(f"[INFO] Successfully wrote {file_size} bytes")
+        print("[INFO] ✓ Flash programming complete!")
+        return True
+            
+    except FileNotFoundError:
+        print(f"[ERROR] MTD tools not found. Install with: apt-get install mtd-utils")
+        return False
+    except Exception as e:
+        print(f"[ERROR] MTD flash write failed: {e}")
+        import traceback
+        traceback.print_exc()
+        return False
+
+def flash_write_flashrom(bin_file: Path, spi_dev: Path) -> bool:
+    """Write binary to SPI flash using flashrom (no verify)"""
     print(f"[INFO] Programming SPI flash: {bin_file} -> {spi_dev}")
     
-    # Try flashrom first (more reliable)
+    file_size = bin_file.stat().st_size
+    print(f"[INFO] Binary size: {file_size} bytes ({file_size/1024:.1f} KB)")
+    
+    print("[INFO] Writing flash with flashrom...")
     try:
         result = subprocess.run(
-            ["flashrom", "-p", f"linux_spi:dev={spi_dev}", "-w", str(bin_file)],
+            ["flashrom", "-p", f"linux_spi:dev={spi_dev}", "-w", str(bin_file), "-n"],
             capture_output=True, text=True, timeout=120
         )
-        if result.returncode == 0:
-            print("[INFO] Flash programming successful (flashrom)")
-            return True
+        
+        if result.returncode != 0:
+            print(f"[ERROR] flashrom failed: {result.stderr}")
+            return False
         else:
-            print(f"[WARN] flashrom failed: {result.stderr}")
+            print("[INFO] ✓ Flash programming complete!")
+            return True
+            
     except FileNotFoundError:
-        print("[WARN] flashrom not found, trying mtd-utils...")
+        print("[ERROR] flashrom not installed. Install with: apt-get install flashrom")
+        return False
+    except subprocess.TimeoutExpired:
+        print("[ERROR] Flash programming timed out")
+        return False
     except Exception as e:
-        print(f"[WARN] flashrom error: {e}")
-    
-    # Fallback to direct SPI write (less safe)
-    try:
-        print("[INFO] Using direct SPI write...")
-        # Erase flash first (send WREN + sector erase commands if needed)
-        # Then write the binary
-        with open(spi_dev, 'wb') as spi:
-            data = bin_file.read_bytes()
-            spi.write(data)
-            spi.flush()
-        print("[INFO] Flash programming complete (direct write)")
-        return True
-    except Exception as e:
-        print(f"[ERROR] Direct SPI write failed: {e}", file=sys.stderr)
+        print(f"[ERROR] Flash programming failed: {e}")
         return False
 
 def main() -> int:
@@ -154,8 +188,8 @@ def main() -> int:
     need_reload = args.force or (cur_hash != prev_hash)
 
     # Import drivers
-    from xheepDriver import xheepDriver, xheepUART, xheepGPIO, xheepJTAG, xheepSPI
-    from pynq import Overlay, PL, MMIO
+    from xheepDriver import xheepDriver, xheepGPIO, xheepJTAG, xheepSPI
+    from pynq import Overlay
 
     if need_reload:
         print("[INFO] Loading bitstream...")
@@ -163,21 +197,20 @@ def main() -> int:
         save_state(cur_hash)
     else:
         print("[INFO] Reusing existing bitstream...")
-        # Skip PL reset, reconnect to existing hardware
         ol = Overlay(str(bit), download=False)
         gpio_ip = ol.ip_dict["axi_gpio"]
-        uart_ip = ol.ip_dict["axi_uartlite"]
         jtag_ip = ol.ip_dict["axi_jtag"]
-        spi_ip = ol.ip_dict["axi_quad_spi"]
-        
-        uart_irq = int(uart_ip.get("interrupts", {}).get("axi_uartlite", {}).get("interrupt", [None])[0] or 0)
-        spi_irq = uart_irq + 1
+        spi_ip = ol.ip_dict.get("axi_quad_spi")
         
         class _Stub:
             def __init__(self):
                 self.gpio = xheepGPIO(ol, int(gpio_ip["phys_addr"]), int(gpio_ip["addr_range"]))
                 self.jtag = xheepJTAG(ol, int(jtag_ip["phys_addr"]), int(jtag_ip["addr_range"]))
-                self.spi = xheepSPI(int(spi_ip["phys_addr"]), spi_irq)
+                if spi_ip:
+                    self.spi = xheepSPI(int(spi_ip["phys_addr"]), 62)
+                    self.spi.bind()  # Bind overlay when reusing
+                else:
+                    self.spi = None
         
         xheep = _Stub()
 
@@ -185,6 +218,10 @@ def main() -> int:
 
     # Handle flash operations
     if args.memory in ["flash_load", "flash_exec"]:
+        if not xheep.spi:
+            print(f"[ERROR] SPI IP not available. Cannot use flash modes.", file=sys.stderr)
+            return 1
+        
         # Need .bin file for flash
         if fw.suffix == ".elf":
             bin_file = fw.with_suffix(".bin")
@@ -195,30 +232,35 @@ def main() -> int:
         else:
             bin_file = fw
         
-        # Set GPIO to select PS SPI flash access
+        # Switch to PS control
         print("[INFO] Switching SPI flash to PS control...")
-        xheep.gpio.setChannel(0b10000)  # Set ps_x_heep_o[4] = 1 for PS control
-        time.sleep(0.1)
+        xheep.gpio.setSpiFlashControl(True)
         
-        # Get SPI device
+        # Get MTD device (preferred) or SPI device (fallback)
+        mtd_dev = xheep.spi.getMtdDev()
         spi_dev = xheep.spi.getSpiDev()
-        if not spi_dev or not spi_dev.exists():
-            print(f"[ERROR] SPI device not found", file=sys.stderr)
-            return 1
         
-        print(f"[INFO] Using SPI device: {spi_dev}")
-        
-        # Program flash
-        if not flash_write_spi(bin_file, spi_dev):
+        if mtd_dev and mtd_dev.exists():
+            print(f"[INFO] Using MTD device: {mtd_dev}")
+            if not flash_write_mtd(bin_file, mtd_dev):
+                xheep.gpio.setSpiFlashControl(False)
+                return 1
+        elif spi_dev and spi_dev.exists():
+            print(f"[INFO] Using SPI device: {spi_dev} (MTD not available)")
+            if not flash_write_flashrom(bin_file, spi_dev):
+                xheep.gpio.setSpiFlashControl(False)
+                return 1
+        else:
+            print(f"[ERROR] No MTD or SPI device found", file=sys.stderr)
+            xheep.gpio.setSpiFlashControl(False)
             return 1
         
         # Switch back to X-HEEP control
         print("[INFO] Switching SPI flash to X-HEEP control...")
-        xheep.gpio.setChannel(0b00000)  # Set ps_x_heep_o[4] = 0 for X-HEEP control
-        time.sleep(0.1)
+        xheep.gpio.setSpiFlashControl(False)
 
     print("\nPress Enter to program and run X-HEEP...")
-    print("(This is a good time to open a UART terminal to see output)")
+    print("(This is a good time to open a UART terminal: screen /dev/ttyUL0 9600)")
     input()
 
     # Configure boot mode
@@ -243,9 +285,13 @@ def main() -> int:
         print("[INFO] Waiting for completion...")
         
         v, e = xheep.gpio.getExitCode()
-        while not v:
+        timeout = time.time() + 30
+        while not v and time.time() < timeout:
             time.sleep(0.01)
             v, e = xheep.gpio.getExitCode()
+        
+        if not v:
+            print("[WARN] Timeout waiting for completion", file=sys.stderr)
         
         print(f"exit_valid={v} | exit_value={e}")
         return 0 if e == 0 else 1
@@ -279,10 +325,14 @@ def main() -> int:
 
         print("[INFO] Waiting for execution to complete...")
         v, e = xheep.gpio.getExitCode()
-        while not v:
+        timeout = time.time() + 30
+        while not v and time.time() < timeout:
             time.sleep(0.01)
             v, e = xheep.gpio.getExitCode()
 
+        if not v:
+            print("[WARN] Timeout waiting for completion", file=sys.stderr)
+        
         print(f"exit_valid={v} | exit_value={e}")
         return 0 if e == 0 else 1
 

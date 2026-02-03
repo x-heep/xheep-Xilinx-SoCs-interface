@@ -277,44 +277,117 @@ class xheepSPI:
     TIMEOUT_S = 5.0
     POLL_S = 0.05
 
-    def __init__(self, memAddr: int, irqId: int = 62):
+    def __init__(self, memAddr: int, irqId: int = 62, use_mtd: bool = True):
         self.memAddr = int(memAddr)
         self.irqId = int(irqId)
         self.PLATFORM_DEV = f"{self.memAddr:08x}.spi"
-        
+        self.use_mtd = use_mtd
+
         board = os.getenv("BOARD", "pynq-z2").lower()
         if board == "aup-zu3":
-            self.DTS_TEMPLATE_PATH = Path("dts/spi-ultrascale.tpl")
+            # Use MTD template for QSPI mode (creates /dev/mtdX)
+            if use_mtd:
+                self.DTS_TEMPLATE_PATH = Path("dts/spi-ultrascale-mtd.tpl")
+            else:
+                self.DTS_TEMPLATE_PATH = Path("dts/spi-ultrascale.tpl")
         else:
-            self.DTS_TEMPLATE_PATH = Path("dts/spi-zynq.tpl")
+            if use_mtd:
+                self.DTS_TEMPLATE_PATH = Path("dts/spi-zynq-mtd.tpl")
+            else:
+                self.DTS_TEMPLATE_PATH = Path("dts/spi-zynq.tpl")
     
+    def _score_text(self, s: str, keywords: list[tuple[str, int]]) -> int:
+        s = (s or "").lower()
+        score = 0
+        for kw, w in keywords:
+            if kw in s:
+                score += w
+        return score
+
     def _get_spi_device(self) -> Optional[Path]:
-        """Find the SPI device node (e.g., /dev/spidev0.0)"""
-        for spidev in sorted(Path("/dev").glob("spidev*")):
-            if spidev.exists():
-                return spidev
-        return None
+        """Find a likely SPI character device node (e.g., /dev/spidev0.0)."""
+        spidev_dir = Path("/sys/class/spidev")
+        candidates: list[tuple[int, Path]] = []
+
+        if spidev_dir.exists():
+            for node in spidev_dir.iterdir():
+                dev = Path("/dev") / node.name
+                if not dev.exists():
+                    continue
+                score = 0
+                try:
+                    of_node = node / "device" / "of_node"
+                    if (of_node / "full_name").exists():
+                        fn = (of_node / "full_name").read_text(encoding="utf-8", errors="ignore")
+                        score += self._score_text(fn, [
+                            ("qspi", 80), ("spi-nor", 80), ("spi_flash", 60), ("flash", 40), ("nor", 30)
+                        ])
+                except Exception:
+                    pass
+                candidates.append((score, dev))
+
+        # Fallback: any /dev/spidev*
+        if not candidates:
+            for dev in sorted(Path("/dev").glob("spidev*")):
+                if dev.exists():
+                    candidates.append((0, dev))
+
+        if not candidates:
+            return None
+        candidates.sort(key=lambda x: x[0], reverse=True)
+        return candidates[0][1]
 
     def _get_mtd_device(self) -> Optional[Path]:
-        """Find the MTD device for the SPI flash"""
+        """Find a likely MTD node for the SPI flash (e.g., /dev/mtd0)."""
         mtd_dir = Path("/sys/class/mtd")
         if not mtd_dir.exists():
             return None
-        
+
+        candidates: list[tuple[int, Path]] = []
         for mtd in mtd_dir.iterdir():
-            try:
-                name_file = mtd / "name"
-                if name_file.exists():
-                    name = name_file.read_text().strip()
-                    if "xheep-firmware" in name or "spi" in name.lower():
-                        mtd_num = mtd.name.replace("mtd", "")
-                        return Path(f"/dev/mtd{mtd_num}")
-            except:
+            if not mtd.name.startswith("mtd"):
                 continue
-        
-        # Fallback: return first MTD device
-        mtds = sorted(Path("/dev").glob("mtd[0-9]"))
-        return mtds[0] if mtds else None
+
+            # Skip mtdblock entries if present in sysfs view
+            if mtd.name.startswith("mtdblock"):
+                continue
+
+            score = 0
+            name = ""
+            try:
+                if (mtd / "name").exists():
+                    name = (mtd / "name").read_text(encoding="utf-8", errors="ignore").strip()
+            except Exception:
+                name = ""
+
+            lname = name.lower()
+            if "xheep-firmware" in lname:
+                score += 200
+            score += self._score_text(lname, [
+                ("qspi", 80), ("spi-nor", 80), ("spi nor", 80), ("flash", 40), ("nor", 30),
+                ("w25", 20), ("n25", 20), ("mt25", 20), ("micron", 10), ("winbond", 10),
+            ])
+
+            try:
+                of_node = mtd / "device" / "of_node"
+                if (of_node / "full_name").exists():
+                    fn = (of_node / "full_name").read_text(encoding="utf-8", errors="ignore")
+                    score += self._score_text(fn, [("qspi", 80), ("spi-nor", 80), ("spi_flash", 60), ("flash", 40), ("nor", 30)])
+            except Exception:
+                pass
+
+            mtd_num = mtd.name.replace("mtd", "")
+            dev = Path("/dev") / f"mtd{mtd_num}"
+            if dev.exists():
+                candidates.append((score, dev))
+
+        if not candidates:
+            # Last-resort fallback: pick the first /dev/mtdX
+            devs = sorted(Path("/dev").glob("mtd[0-9]*"))
+            return devs[0] if devs else None
+
+        candidates.sort(key=lambda x: x[0], reverse=True)
+        return candidates[0][1]
 
     def _patchDts(self) -> None:
         if not self.DTS_TEMPLATE_PATH.exists():
@@ -365,7 +438,7 @@ class xheepSPI:
 
     def bind(self) -> None:
         log("info", "Binding SPI device tree overlay...")
-        
+
         self._patchDts()
         self._dtsCompile()
 
@@ -398,11 +471,45 @@ class xheepSPI:
             log("error", f"Platform device {self.PLATFORM_DEV} did not appear")
             return
 
+        # Bind the SPI driver if not already bound
+        driver_link = dev / "driver"
+        if not driver_link.exists():
+            # Try multiple possible driver names
+            driver_names = ["xilinx_spi", "spi-xilinx"]
+            bind_success = False
+
+            for driver_name in driver_names:
+                bind_path = Path("/sys/bus/platform/drivers") / driver_name / "bind"
+                if not bind_path.exists():
+                    # Try to load the module
+                    subprocess.run(["modprobe", driver_name], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+                if bind_path.exists():
+                    try:
+                        log("debug", f"Attempting to bind driver: {driver_name}")
+                        bind_path.write_text(self.PLATFORM_DEV, encoding="utf-8")
+                        bind_success = True
+                        break
+                    except OSError as e:
+                        if e.errno == 16:  # Device already bound
+                            bind_success = True
+                            break
+                        log("debug", f"Driver {driver_name} bind failed: {e}")
+                    except Exception as e:
+                        log("debug", f"Driver {driver_name} bind failed: {e}")
+
+            if not bind_success:
+                log("warning", "Could not bind SPI driver - device may still work if driver auto-binds")
+
+        # Wait for driver bind confirmation
+        if not self._wait(lambda: (dev / "driver").exists(), self.TIMEOUT_S, "SPI driver bind"):
+            log("warning", "SPI driver not bound - communication may fail")
+
         # Wait for MTD or SPI device
         time.sleep(0.5)
         mtd_dev = self._get_mtd_device()
         spi_dev = self._get_spi_device()
-        
+
         if mtd_dev:
             log("info", f"MTD device ready: {mtd_dev}")
         elif spi_dev:
@@ -455,13 +562,22 @@ class xheepDriver(Overlay):
         self.uart = xheepUART(self.AXI_UART_ADDR)
         self.uart.unbind()
 
+        # SPI IRQ is at concat position 2 (In2), UART is at position 0 (In0)
+        # So SPI_IRQ = UART_IRQ + 2
+        board = os.getenv("BOARD", "pynq-z2").lower()
+        if board == "aup-zu3":
+            spi_irq = 92  # UltraScale+: UART=90 (In0), In1=91, SPI=92 (In2)
+        else:
+            spi_irq = 32  # Zynq-7000: UART=30 (In0), In1=31, SPI=32 (In2)
+
         if spi_ip:
             self.AXI_SPI_ADDR = int(spi_ip["phys_addr"])
             self.AXI_SPI_RNG  = int(spi_ip["addr_range"])
-            self.spi = xheepSPI(self.AXI_SPI_ADDR, 62)
+            # Use MTD mode for Quad SPI (creates /dev/mtdX instead of /dev/spidevX.Y)
+            self.spi = xheepSPI(self.AXI_SPI_ADDR, spi_irq, use_mtd=True)
             self.spi.unbind()
         else:
-            log("warning", "SPI IP not found - flash modes disabled")
+            log("warning", "SPI IP not found - PL SPI overlay unavailable (flash may still be accessible via PS mux)")
             self.spi = None
 
         PL.reset()

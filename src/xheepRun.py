@@ -160,6 +160,93 @@ def flash_write_flashrom(bin_file: Path, spi_dev: Path) -> bool:
         print(f"[ERROR] Flash programming failed: {e}")
         return False
 
+def _score_text(s: str, keywords: list[tuple[str, int]]) -> int:
+    s = (s or "").lower()
+    score = 0
+    for kw, w in keywords:
+        if kw in s:
+            score += w
+    return score
+
+def find_best_mtd_device() -> Optional[Path]:
+    """Best-effort discovery of an SPI NOR MTD node exposed by Linux."""
+    mtd_dir = Path("/sys/class/mtd")
+    if not mtd_dir.exists():
+        return None
+
+    candidates: list[tuple[int, Path]] = []
+    for mtd in mtd_dir.iterdir():
+        if not mtd.name.startswith("mtd"):
+            continue
+        if mtd.name.startswith("mtdblock"):
+            continue
+
+        name = ""
+        try:
+            if (mtd / "name").exists():
+                name = (mtd / "name").read_text(encoding="utf-8", errors="ignore").strip()
+        except Exception:
+            name = ""
+
+        score = 0
+        lname = name.lower()
+        if "xheep-firmware" in lname:
+            score += 200
+        score += _score_text(lname, [
+            ("qspi", 80), ("spi-nor", 80), ("spi nor", 80), ("flash", 40), ("nor", 30),
+            ("w25", 20), ("n25", 20), ("mt25", 20), ("micron", 10), ("winbond", 10),
+        ])
+
+        try:
+            of_node = mtd / "device" / "of_node"
+            if (of_node / "full_name").exists():
+                fn = (of_node / "full_name").read_text(encoding="utf-8", errors="ignore")
+                score += _score_text(fn, [("qspi", 80), ("spi-nor", 80), ("spi_flash", 60), ("flash", 40), ("nor", 30)])
+        except Exception:
+            pass
+
+        mtd_num = mtd.name.replace("mtd", "")
+        dev = Path("/dev") / f"mtd{mtd_num}"
+        if dev.exists():
+            candidates.append((score, dev))
+
+    if not candidates:
+        devs = sorted(Path("/dev").glob("mtd[0-9]*"))
+        return devs[0] if devs else None
+
+    candidates.sort(key=lambda x: x[0], reverse=True)
+    return candidates[0][1]
+
+def find_best_spidev_device() -> Optional[Path]:
+    """Best-effort discovery of a spidev node exposed by Linux."""
+    spidev_dir = Path("/sys/class/spidev")
+    candidates: list[tuple[int, Path]] = []
+
+    if spidev_dir.exists():
+        for node in spidev_dir.iterdir():
+            dev = Path("/dev") / node.name
+            if not dev.exists():
+                continue
+            score = 0
+            try:
+                of_node = node / "device" / "of_node"
+                if (of_node / "full_name").exists():
+                    fn = (of_node / "full_name").read_text(encoding="utf-8", errors="ignore")
+                    score += _score_text(fn, [("qspi", 50), ("spi-nor", 50), ("spi_flash", 40), ("flash", 30), ("nor", 20)])
+            except Exception:
+                pass
+            candidates.append((score, dev))
+
+    if not candidates:
+        for dev in sorted(Path("/dev").glob("spidev*")):
+            if dev.exists():
+                candidates.append((0, dev))
+
+    if not candidates:
+        return None
+    candidates.sort(key=lambda x: x[0], reverse=True)
+    return candidates[0][1]
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("-o", "--overlay", required=True, help="Path to .bit")
@@ -207,7 +294,15 @@ def main() -> int:
                 self.gpio = xheepGPIO(ol, int(gpio_ip["phys_addr"]), int(gpio_ip["addr_range"]))
                 self.jtag = xheepJTAG(ol, int(jtag_ip["phys_addr"]), int(jtag_ip["addr_range"]))
                 if spi_ip:
-                    self.spi = xheepSPI(int(spi_ip["phys_addr"]), 62)
+                    # SPI IRQ is at concat position 2 (In2), UART is at position 0 (In0)
+                    # So SPI_IRQ = UART_IRQ + 2
+                    board = os.getenv("BOARD", "pynq-z2").lower()
+                    if board == "aup-zu3":
+                        spi_irq = 92  # UltraScale+: UART=90 (In0), In1=91, SPI=92 (In2)
+                    else:
+                        spi_irq = 32  # Zynq-7000: UART=30 (In0), In1=31, SPI=32 (In2)
+                    # Use MTD mode for Quad SPI
+                    self.spi = xheepSPI(int(spi_ip["phys_addr"]), spi_irq, use_mtd=True)
                     self.spi.bind()  # Bind overlay when reusing
                 else:
                     self.spi = None
@@ -216,12 +311,8 @@ def main() -> int:
 
     xvc_addr = xheep.jtag.getAddr()
 
-    # Handle flash operations
+    # Handle flash operations (program flash via PS/Linux after selecting the mux)
     if args.memory in ["flash_load", "flash_exec"]:
-        if not xheep.spi:
-            print(f"[ERROR] SPI IP not available. Cannot use flash modes.", file=sys.stderr)
-            return 1
-        
         # Need .bin file for flash
         if fw.suffix == ".elf":
             bin_file = fw.with_suffix(".bin")
@@ -231,34 +322,50 @@ def main() -> int:
                 return 2
         else:
             bin_file = fw
-        
-        # Switch to PS control
+
+        # Switch mux to PS/Linux side
         print("[INFO] Switching SPI flash to PS control...")
         xheep.gpio.setSpiFlashControl(True)
-        
-        # Get MTD device (preferred) or SPI device (fallback)
-        mtd_dev = xheep.spi.getMtdDev()
-        spi_dev = xheep.spi.getSpiDev()
-        
+        time.sleep(0.2)
+
+        # Prefer devices discovered via the PL SPI overlay (if it exists),
+        # but fall back to global discovery to support PS/QSPI nodes too.
+        mtd_dev = None
+        spi_dev = None
+        if getattr(xheep, "spi", None):
+            try:
+                mtd_dev = xheep.spi.getMtdDev()
+                spi_dev = xheep.spi.getSpiDev()
+            except Exception:
+                mtd_dev = None
+                spi_dev = None
+
+        if not mtd_dev:
+            mtd_dev = find_best_mtd_device()
+        if not spi_dev:
+            spi_dev = find_best_spidev_device()
+
+        ok = False
         if mtd_dev and mtd_dev.exists():
             print(f"[INFO] Using MTD device: {mtd_dev}")
-            if not flash_write_mtd(bin_file, mtd_dev):
-                xheep.gpio.setSpiFlashControl(False)
-                return 1
+            ok = flash_write_mtd(bin_file, mtd_dev)
         elif spi_dev and spi_dev.exists():
             print(f"[INFO] Using SPI device: {spi_dev} (MTD not available)")
-            if not flash_write_flashrom(bin_file, spi_dev):
-                xheep.gpio.setSpiFlashControl(False)
-                return 1
+            ok = flash_write_flashrom(bin_file, spi_dev)
         else:
-            print(f"[ERROR] No MTD or SPI device found", file=sys.stderr)
-            xheep.gpio.setSpiFlashControl(False)
-            return 1
-        
-        # Switch back to X-HEEP control
+            print("[ERROR] No MTD or SPI device found after switching mux.", file=sys.stderr)
+            print("[INFO] Debug hints:", file=sys.stderr)
+            print("  - ls -l /dev/mtd* /dev/spidev* 2>/dev/null", file=sys.stderr)
+            print("  - cat /sys/class/mtd/*/name 2>/dev/null", file=sys.stderr)
+            print("  - dmesg | egrep -i 'qspi|spi-nor|spidev|mtd'", file=sys.stderr)
+            ok = False
+
+        # Always switch back to X-HEEP control
         print("[INFO] Switching SPI flash to X-HEEP control...")
         xheep.gpio.setSpiFlashControl(False)
 
+        if not ok:
+            return 1
     print("\nPress Enter to program and run X-HEEP...")
     print("(This is a good time to open a UART terminal: screen /dev/ttyUL0 9600)")
     input()

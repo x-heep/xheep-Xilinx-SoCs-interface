@@ -6,3 +6,4 @@ loaded.xclbin
 *.bit
 *.hwh
 xheep_logs/
+__pychache__/

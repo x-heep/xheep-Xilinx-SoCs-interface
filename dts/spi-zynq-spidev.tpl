@@ -1,6 +1,17 @@
 /dts-v1/;
 /plugin/;
 
+/*
+ * AXI Quad SPI overlay for Zynq-7000 - SPIDEV version
+ * Target: PYNQ-Z2 and similar boards
+ *
+ * This version creates /dev/spidevX.Y for raw SPI access.
+ * Use this for debugging or when spi-nor driver doesn't probe.
+ *
+ * Placeholders:
+ *   ######## -> SPI base address (es. 43c00000)
+ */
+
 / {
     fragment@0 {
         target-path = "/";
@@ -32,25 +43,12 @@
                 #size-cells = <0>;
                 status = "okay";
 
-                /* SPI NOR flash child - for MTD access */
-                flash@0 {
-                    compatible = "jedec,spi-nor";
+                /* SPIDEV child - creates /dev/spidevX.Y */
+                spidev@0 {
+                    compatible = "rohm,dh2228fv";  /* Generic SPI device */
                     reg = <0>;
                     spi-max-frequency = <10000000>;
-                    spi-rx-bus-width = <1>;
-                    spi-tx-bus-width = <1>;
                     status = "okay";
-
-                    partitions {
-                        compatible = "fixed-partitions";
-                        #address-cells = <1>;
-                        #size-cells = <1>;
-
-                        partition@0 {
-                            label = "xheep-firmware";
-                            reg = <0x0 0x1000000>;
-                        };
-                    };
                 };
             };
 

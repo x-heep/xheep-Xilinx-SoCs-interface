@@ -1,20 +1,31 @@
 /dts-v1/;
 /plugin/;
 
+/*
+ * AXI Quad SPI overlay for ZynqMP (UltraScale+) - SPIDEV version
+ * Target: AUP-ZU3 and similar boards
+ *
+ * This version creates /dev/spidevX.Y for raw SPI access.
+ * Use this for debugging or when spi-nor driver doesn't probe.
+ *
+ * Placeholders:
+ *   ######## -> SPI base address (es. a0030000)
+ */
+
 / {
     fragment@0 {
         target-path = "/";
         __overlay__ {
-            #address-cells = <1>;
-            #size-cells = <1>;
+            #address-cells = <2>;
+            #size-cells = <2>;
 
             axi_quad_spi_0: spi@######## {
                 compatible = "xlnx,axi-quad-spi-3.2", "xlnx,xps-spi-2.00.a";
-                reg = <0x######## 0x10000>;
+                reg = <0x0 0x######## 0x0 0x10000>;
 
-                /* Zynq GIC interrupt: 0=SPI, 31=fabric, 1=rising edge */
-                interrupt-parent = <&intc>;
-                interrupts = <0 31 1>;
+                /* GIC SPI interrupt: 0=SPI, 89=pl_ps_irq0[0], 4=level high */
+                interrupt-parent = <&gic>;
+                interrupts = <0 91 1>;
 
                 /* Clocks: use fixed-clock */
                 clocks = <&misc_clk_0>;
@@ -32,25 +43,12 @@
                 #size-cells = <0>;
                 status = "okay";
 
-                /* SPI NOR flash child - for MTD access */
-                flash@0 {
-                    compatible = "jedec,spi-nor";
+                /* SPIDEV child - creates /dev/spidevX.Y */
+                spidev@0 {
+                    compatible = "rohm,dh2228fv";  /* Generic SPI device */
                     reg = <0>;
                     spi-max-frequency = <10000000>;
-                    spi-rx-bus-width = <1>;
-                    spi-tx-bus-width = <1>;
                     status = "okay";
-
-                    partitions {
-                        compatible = "fixed-partitions";
-                        #address-cells = <1>;
-                        #size-cells = <1>;
-
-                        partition@0 {
-                            label = "xheep-firmware";
-                            reg = <0x0 0x1000000>;
-                        };
-                    };
                 };
             };
 

@@ -1,5 +1,6 @@
 import argparse
 import hashlib
+import os
 import socket
 import struct
 import subprocess
@@ -14,7 +15,7 @@ STATE_FILE = Path("/tmp/.xheep_state")
 TTY_DEVICE = "/dev/ttyUL0"
 
 def flush_uart():
-    """Flush UART RX/TX buffers to avoid stale data."""
+    """ Flush UART RX/TX buffers to avoid stale data """
     try:
         ser = serial.Serial(TTY_DEVICE, 9600, timeout=0.1)
         ser.reset_input_buffer()
@@ -91,75 +92,6 @@ def shutdown_ocd(proc, fh):
         except:
             pass
 
-def flash_write_mtd(bin_file: Path, mtd_dev: Path) -> bool:
-    """Write binary to SPI flash using MTD"""
-    print(f"[INFO] Programming SPI flash: {bin_file} -> {mtd_dev}")
-    
-    file_size = bin_file.stat().st_size
-    print(f"[INFO] Binary size: {file_size} bytes ({file_size/1024:.1f} KB)")
-    
-    try:
-        # Erase the flash
-        print("[INFO] Erasing flash...")
-        result = subprocess.run(
-            ["flash_erase", str(mtd_dev), "0", "0"],
-            capture_output=True, text=True, timeout=30
-        )
-        if result.returncode != 0:
-            print(f"[ERROR] Flash erase failed: {result.stderr}")
-            return False
-        
-        # Write the binary
-        print("[INFO] Writing flash...")
-        with open(mtd_dev, 'wb') as mtd:
-            data = bin_file.read_bytes()
-            mtd.write(data)
-            mtd.flush()
-        
-        print(f"[INFO] Successfully wrote {file_size} bytes")
-        print("[INFO] ✓ Flash programming complete!")
-        return True
-            
-    except FileNotFoundError:
-        print(f"[ERROR] MTD tools not found. Install with: apt-get install mtd-utils")
-        return False
-    except Exception as e:
-        print(f"[ERROR] MTD flash write failed: {e}")
-        import traceback
-        traceback.print_exc()
-        return False
-
-def flash_write_flashrom(bin_file: Path, spi_dev: Path) -> bool:
-    """Write binary to SPI flash using flashrom (no verify)"""
-    print(f"[INFO] Programming SPI flash: {bin_file} -> {spi_dev}")
-    
-    file_size = bin_file.stat().st_size
-    print(f"[INFO] Binary size: {file_size} bytes ({file_size/1024:.1f} KB)")
-    
-    print("[INFO] Writing flash with flashrom...")
-    try:
-        result = subprocess.run(
-            ["flashrom", "-p", f"linux_spi:dev={spi_dev}", "-w", str(bin_file), "-n"],
-            capture_output=True, text=True, timeout=120
-        )
-        
-        if result.returncode != 0:
-            print(f"[ERROR] flashrom failed: {result.stderr}")
-            return False
-        else:
-            print("[INFO] ✓ Flash programming complete!")
-            return True
-            
-    except FileNotFoundError:
-        print("[ERROR] flashrom not installed. Install with: apt-get install flashrom")
-        return False
-    except subprocess.TimeoutExpired:
-        print("[ERROR] Flash programming timed out")
-        return False
-    except Exception as e:
-        print(f"[ERROR] Flash programming failed: {e}")
-        return False
-
 def _score_text(s: str, keywords: list[tuple[str, int]]) -> int:
     s = (s or "").lower()
     score = 0
@@ -167,85 +99,6 @@ def _score_text(s: str, keywords: list[tuple[str, int]]) -> int:
         if kw in s:
             score += w
     return score
-
-def find_best_mtd_device() -> Optional[Path]:
-    """Best-effort discovery of an SPI NOR MTD node exposed by Linux."""
-    mtd_dir = Path("/sys/class/mtd")
-    if not mtd_dir.exists():
-        return None
-
-    candidates: list[tuple[int, Path]] = []
-    for mtd in mtd_dir.iterdir():
-        if not mtd.name.startswith("mtd"):
-            continue
-        if mtd.name.startswith("mtdblock"):
-            continue
-
-        name = ""
-        try:
-            if (mtd / "name").exists():
-                name = (mtd / "name").read_text(encoding="utf-8", errors="ignore").strip()
-        except Exception:
-            name = ""
-
-        score = 0
-        lname = name.lower()
-        if "xheep-firmware" in lname:
-            score += 200
-        score += _score_text(lname, [
-            ("qspi", 80), ("spi-nor", 80), ("spi nor", 80), ("flash", 40), ("nor", 30),
-            ("w25", 20), ("n25", 20), ("mt25", 20), ("micron", 10), ("winbond", 10),
-        ])
-
-        try:
-            of_node = mtd / "device" / "of_node"
-            if (of_node / "full_name").exists():
-                fn = (of_node / "full_name").read_text(encoding="utf-8", errors="ignore")
-                score += _score_text(fn, [("qspi", 80), ("spi-nor", 80), ("spi_flash", 60), ("flash", 40), ("nor", 30)])
-        except Exception:
-            pass
-
-        mtd_num = mtd.name.replace("mtd", "")
-        dev = Path("/dev") / f"mtd{mtd_num}"
-        if dev.exists():
-            candidates.append((score, dev))
-
-    if not candidates:
-        devs = sorted(Path("/dev").glob("mtd[0-9]*"))
-        return devs[0] if devs else None
-
-    candidates.sort(key=lambda x: x[0], reverse=True)
-    return candidates[0][1]
-
-def find_best_spidev_device() -> Optional[Path]:
-    """Best-effort discovery of a spidev node exposed by Linux."""
-    spidev_dir = Path("/sys/class/spidev")
-    candidates: list[tuple[int, Path]] = []
-
-    if spidev_dir.exists():
-        for node in spidev_dir.iterdir():
-            dev = Path("/dev") / node.name
-            if not dev.exists():
-                continue
-            score = 0
-            try:
-                of_node = node / "device" / "of_node"
-                if (of_node / "full_name").exists():
-                    fn = (of_node / "full_name").read_text(encoding="utf-8", errors="ignore")
-                    score += _score_text(fn, [("qspi", 50), ("spi-nor", 50), ("spi_flash", 40), ("flash", 30), ("nor", 20)])
-            except Exception:
-                pass
-            candidates.append((score, dev))
-
-    if not candidates:
-        for dev in sorted(Path("/dev").glob("spidev*")):
-            if dev.exists():
-                candidates.append((0, dev))
-
-    if not candidates:
-        return None
-    candidates.sort(key=lambda x: x[0], reverse=True)
-    return candidates[0][1]
 
 def main() -> int:
     ap = argparse.ArgumentParser()
@@ -275,7 +128,7 @@ def main() -> int:
     need_reload = args.force or (cur_hash != prev_hash)
 
     # Import drivers
-    from xheepDriver import xheepDriver, xheepGPIO, xheepJTAG, xheepSPI
+    from xheepDriver import xheepDriver, xheepGPIO, xheepJTAG, xheepSPI, xheepFlashProgrammer
     from pynq import Overlay
 
     if need_reload:
@@ -303,72 +156,65 @@ def main() -> int:
                         spi_irq = 32  # Zynq-7000: UART=30 (In0), In1=31, SPI=32 (In2)
                     # Use MTD mode for Quad SPI
                     self.spi = xheepSPI(int(spi_ip["phys_addr"]), spi_irq, use_mtd=True)
-                    self.spi.bind()  # Bind overlay when reusing
+                    # Note: don't bind here - we'll use direct MMIO for flash programming
+                    self.flash_programmer = xheepFlashProgrammer(int(spi_ip["phys_addr"]), self.gpio)
                 else:
                     self.spi = None
+                    self.flash_programmer = None
         
         xheep = _Stub()
 
     xvc_addr = xheep.jtag.getAddr()
 
-    # Handle flash operations (program flash via PS/Linux after selecting the mux)
+    # Handle flash operations using direct MMIO (does not require kernel drivers)
     if args.memory in ["flash_load", "flash_exec"]:
         # Need .bin file for flash
         if fw.suffix == ".elf":
             bin_file = fw.with_suffix(".bin")
             if not bin_file.exists():
-                print(f"[ERROR] Flash mode requires .bin file. Convert {fw} to {bin_file}", file=sys.stderr)
-                print("[INFO] Use: riscv32-unknown-elf-objcopy -O binary firmware.elf firmware.bin", file=sys.stderr)
+                print(f"[ERROR] Flash mode requires .bin file", file=sys.stderr)
                 return 2
         else:
             bin_file = fw
 
-        # Switch mux to PS/Linux side
+        # Check if flash programmer is available
+        if not getattr(xheep, "flash_programmer", None):
+            print("[ERROR] Flash programmer not available (no SPI IP found)", file=sys.stderr)
+            return 2
+
+        # Note: SPI kernel driver is no longer bound by xheepDriver
+        # (we use direct MMIO instead to avoid state corruption issues)
+
+        # Switch mux to PS control
         print("[INFO] Switching SPI flash to PS control...")
         xheep.gpio.setSpiFlashControl(True)
         time.sleep(0.2)
 
-        # Prefer devices discovered via the PL SPI overlay (if it exists),
-        # but fall back to global discovery to support PS/QSPI nodes too.
-        mtd_dev = None
-        spi_dev = None
-        if getattr(xheep, "spi", None):
-            try:
-                mtd_dev = xheep.spi.getMtdDev()
-                spi_dev = xheep.spi.getSpiDev()
-            except Exception:
-                mtd_dev = None
-                spi_dev = None
-
-        if not mtd_dev:
-            mtd_dev = find_best_mtd_device()
-        if not spi_dev:
-            spi_dev = find_best_spidev_device()
-
+        # Program flash using direct MMIO
         ok = False
-        if mtd_dev and mtd_dev.exists():
-            print(f"[INFO] Using MTD device: {mtd_dev}")
-            ok = flash_write_mtd(bin_file, mtd_dev)
-        elif spi_dev and spi_dev.exists():
-            print(f"[INFO] Using SPI device: {spi_dev} (MTD not available)")
-            ok = flash_write_flashrom(bin_file, spi_dev)
-        else:
-            print("[ERROR] No MTD or SPI device found after switching mux.", file=sys.stderr)
-            print("[INFO] Debug hints:", file=sys.stderr)
-            print("  - ls -l /dev/mtd* /dev/spidev* 2>/dev/null", file=sys.stderr)
-            print("  - cat /sys/class/mtd/*/name 2>/dev/null", file=sys.stderr)
-            print("  - dmesg | egrep -i 'qspi|spi-nor|spidev|mtd'", file=sys.stderr)
+        try:
+            print(f"[INFO] Programming flash with: {bin_file}")
+            ok = xheep.flash_programmer.program_file(bin_file, verify=args.verify)
+        except Exception as e:
+            print(f"[ERROR] Flash programming failed: {e}", file=sys.stderr)
+            import traceback
+            traceback.print_exc()
             ok = False
-
-        # Always switch back to X-HEEP control
-        print("[INFO] Switching SPI flash to X-HEEP control...")
-        xheep.gpio.setSpiFlashControl(False)
+        finally:
+            # Always switch back to X-HEEP control
+            print("[INFO] Switching SPI flash to X-HEEP control...")
+            xheep.gpio.setSpiFlashControl(False)
+            time.sleep(0.05)
 
         if not ok:
             return 1
     print("\nPress Enter to program and run X-HEEP...")
     print("(This is a good time to open a UART terminal: screen /dev/ttyUL0 9600)")
     input()
+
+    # Ensure X-HEEP has flash control before starting execution
+    # (GPIO starts with PS control to prevent flash corruption during setup)
+    xheep.gpio.setSpiFlashControl(False)
 
     # Configure boot mode
     if args.memory == "on_chip":

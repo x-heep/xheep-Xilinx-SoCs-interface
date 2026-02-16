@@ -87,7 +87,6 @@ class xheepGPIO:
         """
         # Read current value
         current = int(self._mmio.read(self.CH1_DATA))
-        log("debug", f"GPIO before: 0x{current:02X} (SPI_SEL={self.getBit(0, self.BIT_SPI_SEL)})")
         
         if use_ps:
             # Set ALL bits to 1 (0x1F) - this is what debug_spi.py does and it works
@@ -103,10 +102,6 @@ class xheepGPIO:
         
         self._mmio.write(self.CH1_DATA, new_val)
         time.sleep(20e-3)  # Wait for mux to settle
-        
-        # Verify
-        after = int(self._mmio.read(self.CH1_DATA))
-        log("debug", f"GPIO after: 0x{after:02X} (SPI_SEL={self.getBit(0, self.BIT_SPI_SEL)})")
 
     def resetXheep(self) -> None:
         self.setBit(0, self.BIT_RST_NI, 0)
@@ -463,14 +458,14 @@ class xheepSPI:
                 unbind_path.write_text(self.PLATFORM_DEV, encoding="utf-8")
                 self._wait(lambda: not driver_link.exists(), self.TIMEOUT_S, "SPI driver unbind")
             except Exception as e:
-                log("debug", f"SPI driver unbind: {e}")
+                pass
 
         if self.OVL_DIR.exists():
             try:
                 os.rmdir(self.OVL_DIR)
                 self._wait(lambda: not self.OVL_DIR.exists(), self.TIMEOUT_S, "SPI overlay removal")
             except Exception as e:
-                log("debug", f"SPI overlay removal: {e}")
+                pass
 
     def bind(self) -> None:
         log("info", "Binding SPI device tree overlay...")
@@ -522,7 +517,6 @@ class xheepSPI:
 
                 if bind_path.exists():
                     try:
-                        log("debug", f"Attempting to bind driver: {driver_name}")
                         bind_path.write_text(self.PLATFORM_DEV, encoding="utf-8")
                         bind_success = True
                         break
@@ -530,9 +524,8 @@ class xheepSPI:
                         if e.errno == 16:  # Device already bound
                             bind_success = True
                             break
-                        log("debug", f"Driver {driver_name} bind failed: {e}")
                     except Exception as e:
-                        log("debug", f"Driver {driver_name} bind failed: {e}")
+                        pass
 
             if not bind_success:
                 log("warning", "Could not bind SPI driver - device may still work if driver auto-binds")
@@ -629,38 +622,18 @@ class xheepFlashProgrammer:
         # Reset controller
         self._spi_reset()
         
-        # Debug: show state after reset
-        spisr = self.spi.read(self.SPISR)
-        spicr = self.spi.read(self.SPICR)
-        log("debug", f"After reset: SPICR=0x{spicr:08X}, SPISR=0x{spisr:08X}")
-        
         # Note: SPISR bit 5 (Slave_Mode) reads 1 even after reset - this is normal
         # for this AXI Quad SPI IP configuration (confirmed by debug_spi.py)
         
         # Configure: Master + SPE + Manual_SS + Reset FIFOs
         spicr = (1 << 6) | (1 << 5) | (1 << 2) | (1 << 1) | (1 << 7)
-        log("debug", f"Writing SPICR=0x{spicr:08X} (reset FIFOs)")
         self.spi.write(self.SPICR, spicr)
         time.sleep(0.01)
-        
-        # Verify write
-        spicr_read = self.spi.read(self.SPICR)
-        log("debug", f"SPICR readback: 0x{spicr_read:08X}")
         
         # Clear FIFO reset bits, keep Master + SPE + Manual_SS + MTI
         spicr = (1 << 2) | (1 << 1) | (1 << 7) | (1 << 8)
-        log("debug", f"Writing SPICR=0x{spicr:08X} (normal + MTI)")
         self.spi.write(self.SPICR, spicr)
         time.sleep(0.01)
-        
-        # Debug: show final state
-        spisr = self.spi.read(self.SPISR)
-        spicr = self.spi.read(self.SPICR)
-        log("debug", f"After init: SPICR=0x{spicr:08X}, SPISR=0x{spisr:08X}")
-        
-        # Decode SPISR for debugging
-        log("debug", f"  SPISR bits: RX_Empty={spisr&1}, TX_Empty={(spisr>>2)&1}, "
-            f"Slave_Mode={(spisr>>5)&1}, MODF={(spisr>>4)&1}")
         
         self._initialized = True
     
@@ -853,23 +826,14 @@ class xheepFlashProgrammer:
         """
         # IMPORTANT: Set GPIO to PS control mode BEFORE touching SPI
         # This is exactly what debug_spi.py does
-        log("debug", "Setting GPIO to PS control mode (0x1F)...")
         self.gpio._mmio.write(0x00, 0x1F)  # Direct write like debug_spi.py
         time.sleep(0.1)  # Longer delay for mux to settle
         
-        # Verify GPIO
-        gpio_val = self.gpio._mmio.read(0x00)
-        log("debug", f"GPIO value after set: 0x{gpio_val:08X}")
-        
         # Recreate MMIO object to ensure fresh hardware access (no stale cache)
-        log("debug", f"Reinitializing SPI MMIO at 0x{self.spi_addr:08X}...")
         self.spi = MMIO(self.spi_addr, 0x100)
         time.sleep(0.05)
         
         # Always reinitialize SPI controller (in case kernel driver left it in bad state)
-        log("debug", "Initializing SPI controller...")
-        self._spi_init()
-        
         # Note: SPISR bit 5 (Slave_Mode) reads 1 even in master mode for this IP
         # configuration - this is a hardware quirk, not an error. debug_spi.py
         # confirms the controller works correctly despite this bit being set.
@@ -956,8 +920,6 @@ class xheepFlashProgrammer:
             if errors > 0:
                 log("error", f"Verification failed with {errors} errors")
                 return False
-            
-            log("info", "Verification passed!")
         
         return True
     
@@ -1076,7 +1038,6 @@ class xheepDriver(Overlay):
         
         # Unbind kernel SPI driver if it was bound (free the hardware)
         if self.spi:
-            log("debug", "Unbinding kernel SPI driver for direct MMIO access...")
             self.spi.unbind()
         
         # Switch SPI mux to PS control

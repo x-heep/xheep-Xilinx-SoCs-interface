@@ -200,9 +200,7 @@ def main() -> int:
 
         if not ok:
             return 1
-    log("info", "Press Enter to program and run X-HEEP...")
-    log("info", "(Open UART terminal: screen /dev/ttyUL0 9600)")
-    input()
+    input("Press enter to start the program on x-heep...")
 
     # Ensure X-HEEP has flash control before starting execution
     # (GPIO starts with PS control to prevent flash corruption during setup)

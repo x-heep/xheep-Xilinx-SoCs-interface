@@ -11,6 +11,9 @@ import serial
 from pathlib import Path
 from typing import Optional, Tuple
 
+# Import logging function from xheepDriver
+from xheepDriver import log
+
 STATE_FILE = Path("/tmp/.xheep_state")
 TTY_DEVICE = "/dev/ttyUL0"
 
@@ -65,9 +68,9 @@ def ocd_cmd(cmds, host="127.0.0.1", port=4444, timeout=30.0) -> str:
     buf = tn.read_until(tok.encode(), timeout=timeout)
     return buf.decode(errors="replace")
 
-def start_ocd(cfg: Path, log: Path, addr: int) -> Tuple[subprocess.Popen, object]:
-    log.parent.mkdir(parents=True, exist_ok=True)
-    fh = open(log, "wb", buffering=0)
+def start_ocd(cfg: Path, log_file: Path, addr: int) -> Tuple[subprocess.Popen, object]:
+    log_file.parent.mkdir(parents=True, exist_ok=True)
+    fh = open(log_file, "wb", buffering=0)
     proc = subprocess.Popen(
         ["openocd", "-c", f"set XVC_DEV_ADDR 0x{addr:08x}", "-f", str(cfg)],
         stdout=fh, stderr=fh
@@ -116,7 +119,7 @@ def main() -> int:
 
     for p, l in ((bit, "overlay"), (fw, "firmware"), (cfg, "cfg")):
         if not p.is_file():
-            print(f"[ERROR] Missing {l}: {p}", file=sys.stderr)
+            log("error", f"Missing {l}: {p}")
             return 2
 
     log_dir = Path("xheep_logs")
@@ -132,11 +135,11 @@ def main() -> int:
     from pynq import Overlay
 
     if need_reload:
-        print("[INFO] Loading bitstream...")
+        log("info", "Loading bitstream...")
         xheep = xheepDriver(str(bit))
         save_state(cur_hash)
     else:
-        print("[INFO] Reusing existing bitstream...")
+        log("info", "Reusing existing bitstream...")
         ol = Overlay(str(bit), download=False)
         gpio_ip = ol.ip_dict["axi_gpio"]
         jtag_ip = ol.ip_dict["axi_jtag"]
@@ -172,44 +175,33 @@ def main() -> int:
         if fw.suffix == ".elf":
             bin_file = fw.with_suffix(".bin")
             if not bin_file.exists():
-                print(f"[ERROR] Flash mode requires .bin file", file=sys.stderr)
+                log("error", "Flash mode requires .bin file")
                 return 2
         else:
             bin_file = fw
 
         # Check if flash programmer is available
         if not getattr(xheep, "flash_programmer", None):
-            print("[ERROR] Flash programmer not available (no SPI IP found)", file=sys.stderr)
+            log("error", "Flash programmer not available (no SPI IP found)")
             return 2
 
         # Note: SPI kernel driver is no longer bound by xheepDriver
         # (we use direct MMIO instead to avoid state corruption issues)
 
-        # Switch mux to PS control
-        print("[INFO] Switching SPI flash to PS control...")
-        xheep.gpio.setSpiFlashControl(True)
-        time.sleep(0.2)
-
         # Program flash using direct MMIO
         ok = False
         try:
-            print(f"[INFO] Programming flash with: {bin_file}")
             ok = xheep.flash_programmer.program_file(bin_file, verify=args.verify)
         except Exception as e:
-            print(f"[ERROR] Flash programming failed: {e}", file=sys.stderr)
+            log("error", f"Flash programming failed: {e}")
             import traceback
             traceback.print_exc()
             ok = False
-        finally:
-            # Always switch back to X-HEEP control
-            print("[INFO] Switching SPI flash to X-HEEP control...")
-            xheep.gpio.setSpiFlashControl(False)
-            time.sleep(0.05)
 
         if not ok:
             return 1
-    print("\nPress Enter to program and run X-HEEP...")
-    print("(This is a good time to open a UART terminal: screen /dev/ttyUL0 9600)")
+    log("info", "Press Enter to program and run X-HEEP...")
+    log("info", "(Open UART terminal: screen /dev/ttyUL0 9600)")
     input()
 
     # Ensure X-HEEP has flash control before starting execution
@@ -230,12 +222,12 @@ def main() -> int:
 
     v, e = xheep.gpio.getExitCode()
     if v == 1 or e == 1:
-        print(f"[WARN] Exit bits set before start: valid={v}, value={e}", file=sys.stderr)
+        log("warning", f"Exit bits set before start: valid={v}, value={e}")
 
     # For flash_exec, we don't load via JTAG
     if args.memory == "flash_exec":
-        print("[INFO] X-HEEP is executing from flash...")
-        print("[INFO] Waiting for completion...")
+        log("info", "X-HEEP is executing from flash...")
+        log("info", "Waiting for completion...")
         
         v, e = xheep.gpio.getExitCode()
         timeout = time.time() + 30
@@ -244,9 +236,9 @@ def main() -> int:
             v, e = xheep.gpio.getExitCode()
         
         if not v:
-            print("[WARN] Timeout waiting for completion", file=sys.stderr)
+            log("warning", "Timeout waiting for completion")
         
-        print(f"exit_valid={v} | exit_value={e}")
+        log("info", f"exit_valid={v} | exit_value={e}")
         return 0 if e == 0 else 1
 
     # JTAG loading path
@@ -256,7 +248,7 @@ def main() -> int:
     try:
         time.sleep(0.2)
         if proc.poll() is not None:
-            print(f"[ERROR] OpenOCD failed, see {ocd_log}", file=sys.stderr)
+            log("error", f"OpenOCD failed, see {ocd_log}")
             return 1
 
         wait_tcp("127.0.0.1", 4444, 10.0)
@@ -269,14 +261,14 @@ def main() -> int:
         out = ocd_cmd(cmds, timeout=60.0)
         if args.verify:
             if "verified" in out.lower() and "error" not in out.lower():
-                print("[INFO] Verification passed")
+                log("info", "Verification passed")
             else:
-                print("[WARN] Verification failed", file=sys.stderr)
+                log("warning", "Verification failed")
 
         flush_uart()
         ocd_cmd(["targets riscv0", f"resume 0x{entry:08x}"], timeout=15.0)
 
-        print("[INFO] Waiting for execution to complete...")
+        log("info", "Waiting for execution to complete...")
         v, e = xheep.gpio.getExitCode()
         timeout = time.time() + 30
         while not v and time.time() < timeout:
@@ -284,14 +276,14 @@ def main() -> int:
             v, e = xheep.gpio.getExitCode()
 
         if not v:
-            print("[WARN] Timeout waiting for completion", file=sys.stderr)
+            log("warning", "Timeout waiting for completion")
         
-        print(f"exit_valid={v} | exit_value={e}")
+        log("info", f"exit_valid={v} | exit_value={e}")
         return 0 if e == 0 else 1
 
     except KeyboardInterrupt:
         v, e = xheep.gpio.getExitCode()
-        print(f"Interrupted: valid={v}, value={e}")
+        log("warning", f"Interrupted: valid={v}, value={e}")
         return 130
 
     finally:

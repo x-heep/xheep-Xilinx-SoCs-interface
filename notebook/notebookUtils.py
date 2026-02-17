@@ -15,7 +15,7 @@ src_path = Path("src").resolve()
 if src_path.exists() and str(src_path) not in sys.path:
     sys.path.insert(0, str(src_path))
 
-from xheepDriver import xheepDriver
+from xheepDriver import xheepDriver, xheepFlashProgrammer
 
 class _S:
     def __init__(self):
@@ -106,7 +106,7 @@ def init(bit, force=False):
     display(_b("✓ Ready"))
     return True
 
-def run(fw, verify=False):
+def run(fw, memory="on_chip", verify=False):
     p = Path(fw).resolve()
     cfg = Path("cfg/xheep_xilinx_xvc.cfg").resolve()
     log = Path("xheep_logs/openocd.log")
@@ -118,13 +118,73 @@ def run(fw, verify=False):
         display(_b(f"❌ {p}", False))
         return
     
+    # Validate memory mode
+    if memory not in ["on_chip", "flash_load", "flash_exec"]:
+        display(_b(f"❌ Invalid memory mode: {memory}", False))
+        return
+    
+    # Handle flash operations
+    if memory in ["flash_load", "flash_exec"]:
+        # Need .bin file for flash
+        if p.suffix == ".elf":
+            bin_file = p.with_suffix(".bin")
+            if not bin_file.exists():
+                display(_b(f"❌ Flash mode requires .bin file, not found: {bin_file}", False))
+                return
+        else:
+            bin_file = p
+        
+        # Check if flash programmer is available
+        if not hasattr(ctrl.drv, "flash_programmer") or not ctrl.drv.flash_programmer:
+            display(_b("❌ Flash programmer not available (no SPI IP found)", False))
+            return
+        
+        # Program flash using direct MMIO
+        try:
+            display(_b(f"📝 Programming flash from {bin_file.name}..."))
+            ok = ctrl.drv.flash_programmer.program_file(bin_file, verify=verify)
+            if not ok:
+                display(_b("❌ Flash programming failed", False))
+                return
+            display(_b("✓ Flash programmed successfully"))
+        except Exception as e:
+            display(_b(f"❌ Flash programming error: {e}", False))
+            return
+    
     try:
+        input("Press enter to start the program on x-heep...")
+        
         ctrl.stop_ocd()
-        ctrl.drv.gpio.bootFromJTAG()
+        ctrl.drv.gpio.setSpiFlashControl(False)
+        
+        # Configure boot mode
+        if memory == "on_chip":
+            ctrl.drv.gpio.bootFromJTAG()
+        elif memory == "flash_load":
+            ctrl.drv.gpio.loadFromFlash()
+        elif memory == "flash_exec":
+            ctrl.drv.gpio.execFromFlash()
+        
         ctrl.drv.gpio.resetJTAG()
         ctrl.drv.gpio.resetXheep()
-        time.sleep(0.05)
+        time.sleep(0.1)
         
+        # For flash_exec, no JTAG loading needed
+        if memory == "flash_exec":
+            display(_b("⏳ X-HEEP executing from flash..."))
+            v, e = ctrl.drv.gpio.getExitCode()
+            timeout = time.time() + 30
+            while not v and time.time() < timeout:
+                time.sleep(0.01)
+                v, e = ctrl.drv.gpio.getExitCode()
+            
+            if not v:
+                display(_b("⚠ Timeout waiting for completion", False))
+            else:
+                display(_b(f"exit_valid={v} | exit_value={e}", e == 0))
+            return (v, e)
+        
+        # JTAG loading path (on_chip or flash_load)
         entry = struct.unpack_from("<I", p.read_bytes()[:0x34], 0x18)[0]
         ctrl.ocd, ctrl.ocd_fh = _ocd(cfg, log, ctrl.drv.jtag.getAddr())
         time.sleep(0.2)
@@ -140,11 +200,17 @@ def run(fw, verify=False):
         _cmd(cmds, t=60)
         _cmd(["targets riscv0", f"resume 0x{entry:08x}"], t=15)
         
+        display(_b("⏳ Waiting for execution to complete..."))
         v, e = ctrl.drv.gpio.getExitCode()
-        while not v: 
-            time.sleep(0.01); v, e = ctrl.drv.gpio.getExitCode()
+        timeout = time.time() + 30
+        while not v and time.time() < timeout: 
+            time.sleep(0.01)
+            v, e = ctrl.drv.gpio.getExitCode()
         
-        display(_b(f"exit_valid={v} | exit_value={e}", e == 0))
+        if not v:
+            display(_b("⚠ Timeout waiting for completion", False))
+        else:
+            display(_b(f"exit_valid={v} | exit_value={e}", e == 0))
         return (v, e)
     except KeyboardInterrupt:
         v, e = ctrl.drv.gpio.getExitCode()

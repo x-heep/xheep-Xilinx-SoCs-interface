@@ -57,14 +57,33 @@ The patch is necessary to ensure proper communication between OpenOCD and the AX
 
 ## Execution Flow
 
-The `xheepRun.py` script follows a strict sequence to ensure hardware stability and kernel synchronization:
+The `xheepRun.py` script follows a strict sequence to ensure hardware stability and kernel synchronization. It supports three execution modes controlled via the `--memory` flag:
+
+### On-Chip Memory Mode (JTAG) — Default
+The fastest execution mode, suitable for small programs that fit in internal RAM.
 
 1. **UART Cleanup:** Before any hardware changes, the script checks if the AXI UART is active. It performs a driver unbind and removes the existing overlay to prevent kernel hangs during PL reset.
 2. **PL Reset & Programming:** The Programmable Logic is reset and the new bitstream is loaded via the PYNQ Overlay manager.
 3. **Dynamic Overlay Injection:** The driver retrieves the AXI UART physical address from the bitstream, patches the `uartlite-overlay.tpl` file, compiles it into a `.dtbo`, and injects it into the live kernel via ConfigFS. This re-attaches the UART, creating `/dev/ttyUL0`.
-4. **User Confirmation:** The system halts and waits for the user to press Enter. This allows the user to prepare external debuggers or serial monitors.
+4. **User Confirmation:** The system halts and waits for the user to press Enter.
 5. **JTAG Firmware Load:** OpenOCD starts an XVC server using the AXI JTAG base address. The script connects via Telnet to halt the core and load the `.elf` firmware into memory.
-6. **Monitoring:** Once execution begins, the script monitors GPIO signals. Upon completion, it displays the Exit Valid and Exit Value codes to indicate if the program succeeded or failed.
+6. **Monitoring:** Once execution begins, the script monitors GPIO signals. Upon completion, it displays the Exit Valid and Exit Value codes.
+
+### Flash Load Mode
+Program the external flash memory and load/execute via JTAG. Useful for larger programs.
+
+1. Steps 1-4 same as above.
+2. **Flash Programming:** The firmware binary is programmed into external flash using direct MMIO (without requiring kernel drivers).
+3. **Flash Boot Configuration:** GPIO is configured to boot from flash.
+4. **JTAG Loading:** Firmware is load and executed the same as on-chip mode.
+
+### Flash Execute Mode
+Boot and execute directly from flash without JTAG loading. Most persistent mode.
+
+1. Steps 1-3 same as above.
+2. **Flash Boot Configuration:** GPIO is configured to execute directly from flash.
+3. **Direct Execution:** X-HEEP boots from flash and executes immediately without JTAG intervention.
+4. **Monitoring:** Script monitors exit codes via GPIO.
 
 ---
 
@@ -94,14 +113,19 @@ To program the FPGA and run a firmware image remotely:
 python src/xheepRun.py \
   -o path/to/xheep_top.bit \
   -f path/to/firmware.elf  \
-  --verify
+  --memory on_chip
 ```
 
 ### Argument Details
 
-* `-o`: Path to the FPGA bitstream (`.bit`)
-* `-f`: Path to the compiled RISC-V `.elf` firmware
-* `--verify`: Verify the loaded firmware
+* `-o, --overlay`: Path to the FPGA bitstream (`.bit`) [required]
+* `-f, --firmware`: Path to the compiled RISC-V `.elf` or `.bin` firmware [required]
+* `-m, --memory`: Execution mode: `on_chip` (default), `flash_load`, or `flash_exec`
+  - `on_chip`: Load and execute from internal RAM via JTAG (fastest, suitable for small programs)
+  - `flash_load`: Program flash, then load and execute via JTAG (for larger programs)
+  - `flash_exec`: Program flash and boot directly (persistent, no JTAG loading needed)
+* `--verify`: Verify the loaded firmware against the source file
+* `--force`: Force a full PL reset and UART reconfiguration even if the bitstream hasn't changed
 
 ### Monitoring Serial Output
 

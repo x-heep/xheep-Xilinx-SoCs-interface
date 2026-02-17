@@ -18,7 +18,6 @@ STATE_FILE = Path("/tmp/.xheep_state")
 TTY_DEVICE = "/dev/ttyUL0"
 
 def flush_uart():
-    """ Flush UART RX/TX buffers to avoid stale data """
     try:
         ser = serial.Serial(TTY_DEVICE, 9600, timeout=0.1)
         ser.reset_input_buffer()
@@ -94,14 +93,6 @@ def shutdown_ocd(proc, fh):
             fh.close()
         except:
             pass
-
-def _score_text(s: str, keywords: list[tuple[str, int]]) -> int:
-    s = (s or "").lower()
-    score = 0
-    for kw, w in keywords:
-        if kw in s:
-            score += w
-    return score
 
 def main() -> int:
     ap = argparse.ArgumentParser()
@@ -218,10 +209,6 @@ def main() -> int:
     xheep.gpio.resetXheep()
     time.sleep(0.1)
 
-    v, e = xheep.gpio.getExitCode()
-    if v == 1 or e == 1:
-        log("warning", f"Exit bits set before start: valid={v}, value={e}")
-
     # For flash_exec, we don't load via JTAG
     if args.memory == "flash_exec":
         log("info", "X-HEEP is executing from flash...")
@@ -236,7 +223,7 @@ def main() -> int:
         if not v:
             log("warning", "Timeout waiting for completion")
         
-        log("info", f"exit_valid={v} | exit_value={e}")
+        print(f"exit_valid={v} | exit_value={e}")
         return 0 if e == 0 else 1
 
     # JTAG loading path
@@ -276,7 +263,7 @@ def main() -> int:
         if not v:
             log("warning", "Timeout waiting for completion")
         
-        log("info", f"exit_valid={v} | exit_value={e}")
+        print(f"exit_valid={v} | exit_value={e}")
         return 0 if e == 0 else 1
 
     except KeyboardInterrupt:

@@ -132,9 +132,6 @@ class xheepGPIO:
         exit_valid = (exitVal >> self.EXIT_VALID) & 0x1
         exit_value = (exitVal >> self.EXIT_VALUE) & 0x1
         return (exit_valid, exit_value)
-    
-    def getAddr(self) -> int:
-        return self._mmio.base_addr
 
 
 class xheepUART:
@@ -294,9 +291,6 @@ class xheepUART:
             log("critical", f"Cannot access device node: {e}")
             sys.exit(1)
 
-    def getAddr(self) -> int:
-        return self.memAddr
-
 
 class xheepSPI:
     DTS_PATCHED_PATH = Path("dts/spi-patched.dts")
@@ -336,7 +330,6 @@ class xheepSPI:
         return score
 
     def _get_spi_device(self) -> Optional[Path]:
-        """Find a likely SPI character device node (e.g., /dev/spidev0.0)."""
         spidev_dir = Path("/sys/class/spidev")
         candidates: list[tuple[int, Path]] = []
 
@@ -369,7 +362,6 @@ class xheepSPI:
         return candidates[0][1]
 
     def _get_mtd_device(self) -> Optional[Path]:
-        """Find a likely MTD node for the SPI flash (e.g., /dev/mtd0)."""
         mtd_dir = Path("/sys/class/mtd")
         if not mtd_dir.exists():
             return None
@@ -546,23 +538,8 @@ class xheepSPI:
         else:
             log("warning", "No MTD or SPI device found")
 
-    def getAddr(self) -> int:
-        return self.memAddr
-    
-    def getSpiDev(self) -> Optional[Path]:
-        return self._get_spi_device()
-    
-    def getMtdDev(self) -> Optional[Path]:
-        return self._get_mtd_device()
-
 
 class xheepFlashProgrammer:
-    """
-    Direct MMIO-based SPI flash programmer for X-HEEP on Xilinx platforms.
-    Uses AXI Quad SPI IP to program external SPI NOR flash.
-    Does NOT rely on kernel drivers (MTD/spidev) - works via direct register access.
-    """
-    
     # AXI Quad SPI register offsets (PG153)
     SRR         = 0x40  # Software Reset Register
     SPICR       = 0x60  # SPI Control Register
@@ -570,24 +547,14 @@ class xheepFlashProgrammer:
     SPIDTR      = 0x68  # SPI Data Transmit Register
     SPIDRR      = 0x6C  # SPI Data Receive Register
     SPISSR      = 0x70  # SPI Slave Select Register
-    TXFIFO_OCY  = 0x74  # TX FIFO Occupancy
-    RXFIFO_OCY  = 0x78  # RX FIFO Occupancy
     
     # SPI Flash commands (compatible with W25Q128JV and similar)
     CMD_WRITE_ENABLE    = 0x06
-    CMD_WRITE_DISABLE   = 0x04
     CMD_READ_STATUS1    = 0x05
-    CMD_READ_STATUS2    = 0x35
-    CMD_WRITE_STATUS    = 0x01
     CMD_PAGE_PROGRAM    = 0x02
     CMD_SECTOR_ERASE    = 0x20  # 4KB sector erase
-    CMD_BLOCK_ERASE_32K = 0x52
-    CMD_BLOCK_ERASE_64K = 0xD8
-    CMD_CHIP_ERASE      = 0xC7
     CMD_READ_DATA       = 0x03
-    CMD_FAST_READ       = 0x0B
     CMD_JEDEC_ID        = 0x9F
-    CMD_RELEASE_PWRDOWN = 0xAB
     
     # Flash parameters
     PAGE_SIZE = 256
@@ -596,7 +563,6 @@ class xheepFlashProgrammer:
     # Status register bits
     STATUS_WIP  = 0x01  # Write In Progress
     STATUS_WEL  = 0x02  # Write Enable Latch
-    STATUS_QE   = 0x02  # Quad Enable (in status register 2)
     
     def __init__(self, spi_addr: int, gpio: 'xheepGPIO'):
         """
@@ -610,20 +576,17 @@ class xheepFlashProgrammer:
         self.spi = MMIO(spi_addr, 0x100)
         self.gpio = gpio
         self._initialized = False
-        log("info", f"Flash programmer initialized at SPI address: 0x{spi_addr:08X}")
     
     def _spi_reset(self) -> None:
-        """Reset the SPI controller."""
         self.spi.write(self.SRR, 0x0000000A)
         time.sleep(0.05)  # Increased delay for reset to complete
     
     def _spi_init(self) -> None:
-        """Initialize SPI controller as master."""
         # Reset controller
         self._spi_reset()
         
-        # Note: SPISR bit 5 (Slave_Mode) reads 1 even after reset - this is normal
-        # for this AXI Quad SPI IP configuration (confirmed by debug_spi.py)
+        # Note: SPISR bit 5 (Slave_Mode) reads 1 even after reset.
+        # This is normal for this AXI Quad SPI IP configuration
         
         # Configure: Master + SPE + Manual_SS + Reset FIFOs
         spicr = (1 << 6) | (1 << 5) | (1 << 2) | (1 << 1) | (1 << 7)
@@ -638,15 +601,12 @@ class xheepFlashProgrammer:
         self._initialized = True
     
     def _cs_assert(self) -> None:
-        """Assert chip select (active low)."""
         self.spi.write(self.SPISSR, 0xFFFFFFFE)
     
     def _cs_deassert(self) -> None:
-        """Deassert chip select."""
         self.spi.write(self.SPISSR, 0xFFFFFFFF)
     
     def _wait_tx_empty(self, timeout_ms: int = 100) -> bool:
-        """Wait for TX FIFO to empty."""
         for _ in range(timeout_ms):
             spisr = self.spi.read(self.SPISR)
             if spisr & (1 << 2):  # TX_Empty
@@ -655,7 +615,6 @@ class xheepFlashProgrammer:
         return False
     
     def _flush_rx(self) -> None:
-        """Flush RX FIFO."""
         for _ in range(256):
             spisr = self.spi.read(self.SPISR)
             if spisr & (1 << 0):  # RX_Empty
@@ -663,12 +622,10 @@ class xheepFlashProgrammer:
             self.spi.read(self.SPIDRR)
     
     def _start_transfer(self) -> None:
-        """Start SPI transfer by clearing MTI bit."""
         spicr = self.spi.read(self.SPICR) & ~(1 << 8)
         self.spi.write(self.SPICR, spicr)
     
     def _stop_transfer(self) -> None:
-        """Stop transfer by setting MTI bit."""
         spicr = self.spi.read(self.SPICR) | (1 << 8)
         self.spi.write(self.SPICR, spicr)
     
@@ -728,39 +685,21 @@ class xheepFlashProgrammer:
 
         return bytes(rx_data)
     
-    def wake_up(self) -> None:
-        """Wake flash from power-down mode."""
-        self._transfer(bytes([self.CMD_RELEASE_PWRDOWN]), rx_len=3)
-        time.sleep(0.01)  # tRES1 = 3us typical, use 10ms for safety
-    
     def read_jedec_id(self) -> Tuple[int, int, int]:
-        """Read JEDEC ID (Manufacturer, Memory Type, Capacity)."""
         rx = self._transfer(bytes([self.CMD_JEDEC_ID]), rx_len=3)
         if len(rx) >= 4:
             return (rx[1], rx[2], rx[3])
         return (0, 0, 0)
     
     def read_status1(self) -> int:
-        """Read status register 1."""
         rx = self._transfer(bytes([self.CMD_READ_STATUS1]), rx_len=1)
         return rx[1] if len(rx) >= 2 else 0xFF
     
-    def read_status2(self) -> int:
-        """Read status register 2."""
-        rx = self._transfer(bytes([self.CMD_READ_STATUS2]), rx_len=1)
-        return rx[1] if len(rx) >= 2 else 0xFF
-    
     def write_enable(self) -> None:
-        """Enable write operations."""
         self._transfer(bytes([self.CMD_WRITE_ENABLE]))
         time.sleep(0.001)
     
-    def write_disable(self) -> None:
-        """Disable write operations."""
-        self._transfer(bytes([self.CMD_WRITE_DISABLE]))
-    
     def wait_busy(self, timeout_s: float = 30.0) -> bool:
-        """Wait for flash to become ready."""
         deadline = time.monotonic() + timeout_s
         while time.monotonic() < deadline:
             status = self.read_status1()
@@ -770,7 +709,6 @@ class xheepFlashProgrammer:
         return False
     
     def sector_erase(self, addr: int) -> bool:
-        """Erase 4KB sector containing addr."""
         self.write_enable()
         cmd = bytes([self.CMD_SECTOR_ERASE, 
                      (addr >> 16) & 0xFF, 
@@ -779,15 +717,7 @@ class xheepFlashProgrammer:
         self._transfer(cmd)
         return self.wait_busy(timeout_s=3.0)
     
-    def chip_erase(self) -> bool:
-        """Erase entire flash chip."""
-        log("info", "Erasing entire flash (this may take a while)...")
-        self.write_enable()
-        self._transfer(bytes([self.CMD_CHIP_ERASE]))
-        return self.wait_busy(timeout_s=120.0)
-    
     def page_program(self, addr: int, data: bytes) -> bool:
-        """Program a page (max 256 bytes) starting at addr."""
         if len(data) > self.PAGE_SIZE:
             data = data[:self.PAGE_SIZE]
         if not data:
@@ -802,7 +732,6 @@ class xheepFlashProgrammer:
         return self.wait_busy(timeout_s=5.0)
     
     def read_data(self, addr: int, length: int) -> bytes:
-        """Read data from flash."""
         cmd = bytes([self.CMD_READ_DATA,
                      (addr >> 16) & 0xFF,
                      (addr >> 8) & 0xFF,
@@ -812,20 +741,6 @@ class xheepFlashProgrammer:
     
     def program_binary(self, data: bytes, start_addr: int = 0, 
                        verify: bool = True, erase: bool = True) -> bool:
-        """
-        Program binary data to flash.
-        
-        Args:
-            data: Binary data to program
-            start_addr: Starting address in flash
-            verify: Verify after programming
-            erase: Erase sectors before programming
-        
-        Returns:
-            True if successful
-        """
-        # IMPORTANT: Set GPIO to PS control mode BEFORE touching SPI
-        # This is exactly what debug_spi.py does
         self.gpio._mmio.write(0x00, 0x1F)  # Direct write like debug_spi.py
         time.sleep(0.1)  # Longer delay for mux to settle
         
@@ -833,19 +748,12 @@ class xheepFlashProgrammer:
         self.spi = MMIO(self.spi_addr, 0x100)
         time.sleep(0.05)
         
-        # Always reinitialize SPI controller (in case kernel driver left it in bad state)
-        # Note: SPISR bit 5 (Slave_Mode) reads 1 even in master mode for this IP
-        # configuration - this is a hardware quirk, not an error. debug_spi.py
-        # confirms the controller works correctly despite this bit being set.
-        
-        # Note: do NOT send wake_up (0xAB) here. The AXI Quad SPI IP is in
+        # Do NOT send wake_up (0xAB) here. The AXI Quad SPI IP is in
         # enhanced mode with a command lookup table - 0xAB is not recognized and
         # triggers Command_Error (SPISR bit 10), corrupting subsequent transfers.
-        # debug_spi.py confirms the flash works without wake_up after power-on.
 
         # Read and verify JEDEC ID
         jedec = self.read_jedec_id()
-        log("info", f"Flash JEDEC ID: {jedec[0]:02X} {jedec[1]:02X} {jedec[2]:02X}")
         
         if jedec[0] == 0xFF or jedec[0] == 0x00:
             log("error", "No flash detected or communication error")
@@ -859,7 +767,6 @@ class xheepFlashProgrammer:
             start_sector = start_addr // self.SECTOR_SIZE
             end_sector = (start_addr + data_len - 1) // self.SECTOR_SIZE
             num_sectors = end_sector - start_sector + 1
-            log("info", f"Erasing {num_sectors} sectors...")
             
             for i in range(num_sectors):
                 sector_addr = (start_sector + i) * self.SECTOR_SIZE
@@ -868,8 +775,6 @@ class xheepFlashProgrammer:
                     return False
                 if (i + 1) % 16 == 0:
                     log("info", f"  Erased {i + 1}/{num_sectors} sectors")
-            
-            log("info", "Erase complete")
         
         # Program pages
         log("info", "Programming flash...")
@@ -923,11 +828,7 @@ class xheepFlashProgrammer:
         
         return True
     
-    def program_file(self, filepath: Path, start_addr: int = 0,
-                     verify: bool = True, erase: bool = True) -> bool:
-        """
-        Program binary file to flash.
-        """
+    def program_file(self, filepath: Path, start_addr: int = 0, verify: bool = True, erase: bool = True) -> bool:
         if not filepath.exists():
             log("error", f"File not found: {filepath}")
             return False
@@ -998,60 +899,7 @@ class xheepDriver(Overlay):
         self.jtag = xheepJTAG(self, self.AXI_JTAG_ADDR, self.AXI_JTAG_RNG)
 
         self.uart.bind()
-        # NOTE: Do NOT bind SPI driver - we use direct MMIO for flash programming
-        # Kernel drivers leave the IP in inconsistent state after unbind
-        # if self.spi:
-        #     self.spi.bind()
-        
-        # Create flash programmer using direct MMIO (does not need kernel drivers)
         if spi_ip:
             self.flash_programmer = xheepFlashProgrammer(self.AXI_SPI_ADDR, self.gpio)
         else:
             self.flash_programmer = None
-    
-    def program_flash(self, bin_file: Path, verify: bool = True) -> bool:
-        """
-        Program binary to external SPI flash using direct MMIO.
-        
-        This method:
-        1. Switches SPI mux to PS control
-        2. Programs flash via direct AXI Quad SPI register access
-        3. Switches SPI mux back to X-HEEP control
-        
-        Args:
-            bin_file: Path to binary file
-            verify: Verify after programming
-        
-        Returns:
-            True if successful
-        """
-        if not self.flash_programmer:
-            log("error", "Flash programmer not available (no SPI IP)")
-            return False
-        
-        bin_file = Path(bin_file)
-        if not bin_file.exists():
-            log("error", f"Binary file not found: {bin_file}")
-            return False
-        
-        log("info", f"Programming flash: {bin_file}")
-        
-        # Unbind kernel SPI driver if it was bound (free the hardware)
-        if self.spi:
-            self.spi.unbind()
-        
-        # Switch SPI mux to PS control
-        log("info", "Switching SPI mux to PS control...")
-        self.gpio.setSpiFlashControl(True)
-        time.sleep(0.1)
-        
-        try:
-            # Program flash
-            result = self.flash_programmer.program_file(bin_file, verify=verify)
-        finally:
-            # Always switch back to X-HEEP control
-            log("info", "Switching SPI mux to X-HEEP control...")
-            self.gpio.setSpiFlashControl(False)
-            time.sleep(0.05)
-        
-        return result

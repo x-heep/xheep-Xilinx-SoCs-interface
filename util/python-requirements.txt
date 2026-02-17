@@ -1,2 +1,3 @@
+pynq
 pyserial
 ipywidgets

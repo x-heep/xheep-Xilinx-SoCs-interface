@@ -175,9 +175,6 @@ def main() -> int:
             log("error", "Flash programmer not available (no SPI IP found)")
             return 2
 
-        # Note: SPI kernel driver is no longer bound by xheepDriver
-        # (we use direct MMIO instead to avoid state corruption issues)
-
         # Program flash using direct MMIO
         ok = False
         try:

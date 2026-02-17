@@ -148,8 +148,7 @@ def main() -> int:
                         spi_irq = 92  # UltraScale+: UART=90 (In0), In1=91, SPI=92 (In2)
                     else:
                         spi_irq = 32  # Zynq-7000: UART=30 (In0), In1=31, SPI=32 (In2)
-                    # Use MTD mode for Quad SPI
-                    self.spi = xheepSPI(int(spi_ip["phys_addr"]), spi_irq, use_mtd=True)
+                    self.spi = xheepSPI(int(spi_ip["phys_addr"]), spi_irq)
                     # Note: don't bind here - we'll use direct MMIO for flash programming
                     self.flash_programmer = xheepFlashProgrammer(int(spi_ip["phys_addr"]), self.gpio)
                 else:

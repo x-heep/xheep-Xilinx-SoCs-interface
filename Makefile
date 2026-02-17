@@ -3,7 +3,12 @@ ROOT := $(shell pwd)
 USER := xilinx
 NOTEBOOK_DIR := /home/$(USER)/jupyter_notebooks/xheep
 
-.PHONY: help install install-notebook clean
+# Run parameters with defaults
+LINKER := on_chip
+TARGET := main.bin
+OVERLAY := xilinx_core_v_mini_mcu_wrapper.bit
+
+.PHONY: help install install-notebook run clean
 
 ## Get help for commands in this folder
 help:
@@ -34,6 +39,15 @@ install-notebook:
 	@cp cfg/xheep_xilinx_xvc.cfg $(NOTEBOOK_DIR)/cfg/
 	@cp dts/*.tpl $(NOTEBOOK_DIR)/dts/
 	@echo "Notebook installed to $(NOTEBOOK_DIR)"
+
+## @section Execution
+
+## Run x-heep with specified firmware and overlay
+## @param LINKER=on_chip Linker/execution mode: on_chip (JTAG), flash_load, or flash_exec
+## @param TARGET=main.bin Path to firmware file (.elf or .bin)
+## @param OVERLAY=xilinx_core_v_mini_mcu_wrapper.bit Path to bitstream file
+run:
+	@python3 src/xheepRun.py --overlay $(OVERLAY) --firmware $(TARGET) --memory $(LINKER)
 
 ## @section Cleanup
 

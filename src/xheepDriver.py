@@ -302,24 +302,16 @@ class xheepSPI:
     TIMEOUT_S = 5.0
     POLL_S = 0.05
 
-    def __init__(self, memAddr: int, irqId: int = 62, use_mtd: bool = True):
+    def __init__(self, memAddr: int, irqId: int = 62):
         self.memAddr = int(memAddr)
         self.irqId = int(irqId)
         self.PLATFORM_DEV = f"{self.memAddr:08x}.spi"
-        self.use_mtd = use_mtd
 
         board = os.getenv("BOARD", "pynq-z2").lower()
         if board == "aup-zu3":
-            # Use MTD template for QSPI mode (creates /dev/mtdX)
-            if use_mtd:
-                self.DTS_TEMPLATE_PATH = Path("dts/spi-ultrascale-mtd.tpl")
-            else:
-                self.DTS_TEMPLATE_PATH = Path("dts/spi-ultrascale.tpl")
+            self.DTS_TEMPLATE_PATH = Path("dts/spi-ultrascale.tpl")
         else:
-            if use_mtd:
-                self.DTS_TEMPLATE_PATH = Path("dts/spi-zynq-mtd.tpl")
-            else:
-                self.DTS_TEMPLATE_PATH = Path("dts/spi-zynq.tpl")
+            self.DTS_TEMPLATE_PATH = Path("dts/spi-zynq.tpl")
     
     def _score_text(self, s: str, keywords: list[tuple[str, int]]) -> int:
         s = (s or "").lower()
@@ -358,57 +350,6 @@ class xheepSPI:
 
         if not candidates:
             return None
-        candidates.sort(key=lambda x: x[0], reverse=True)
-        return candidates[0][1]
-
-    def _get_mtd_device(self) -> Optional[Path]:
-        mtd_dir = Path("/sys/class/mtd")
-        if not mtd_dir.exists():
-            return None
-
-        candidates: list[tuple[int, Path]] = []
-        for mtd in mtd_dir.iterdir():
-            if not mtd.name.startswith("mtd"):
-                continue
-
-            # Skip mtdblock entries if present in sysfs view
-            if mtd.name.startswith("mtdblock"):
-                continue
-
-            score = 0
-            name = ""
-            try:
-                if (mtd / "name").exists():
-                    name = (mtd / "name").read_text(encoding="utf-8", errors="ignore").strip()
-            except Exception:
-                name = ""
-
-            lname = name.lower()
-            if "xheep-firmware" in lname:
-                score += 200
-            score += self._score_text(lname, [
-                ("qspi", 80), ("spi-nor", 80), ("spi nor", 80), ("flash", 40), ("nor", 30),
-                ("w25", 20), ("n25", 20), ("mt25", 20), ("micron", 10), ("winbond", 10),
-            ])
-
-            try:
-                of_node = mtd / "device" / "of_node"
-                if (of_node / "full_name").exists():
-                    fn = (of_node / "full_name").read_text(encoding="utf-8", errors="ignore")
-                    score += self._score_text(fn, [("qspi", 80), ("spi-nor", 80), ("spi_flash", 60), ("flash", 40), ("nor", 30)])
-            except Exception:
-                pass
-
-            mtd_num = mtd.name.replace("mtd", "")
-            dev = Path("/dev") / f"mtd{mtd_num}"
-            if dev.exists():
-                candidates.append((score, dev))
-
-        if not candidates:
-            # Last-resort fallback: pick the first /dev/mtdX
-            devs = sorted(Path("/dev").glob("mtd[0-9]*"))
-            return devs[0] if devs else None
-
         candidates.sort(key=lambda x: x[0], reverse=True)
         return candidates[0][1]
 
@@ -526,17 +467,14 @@ class xheepSPI:
         if not self._wait(lambda: (dev / "driver").exists(), self.TIMEOUT_S, "SPI driver bind"):
             log("warning", "SPI driver not bound - communication may fail")
 
-        # Wait for MTD or SPI device
+        # Wait for SPI device
         time.sleep(0.5)
-        mtd_dev = self._get_mtd_device()
         spi_dev = self._get_spi_device()
 
-        if mtd_dev:
-            log("info", f"MTD device ready: {mtd_dev}")
-        elif spi_dev:
+        if spi_dev:
             log("info", f"SPI device ready: {spi_dev}")
         else:
-            log("warning", "No MTD or SPI device found")
+            log("warning", "No SPI device found")
 
 
 class xheepFlashProgrammer:
@@ -883,8 +821,7 @@ class xheepDriver(Overlay):
         if spi_ip:
             self.AXI_SPI_ADDR = int(spi_ip["phys_addr"])
             self.AXI_SPI_RNG  = int(spi_ip["addr_range"])
-            # Use MTD mode for Quad SPI (creates /dev/mtdX instead of /dev/spidevX.Y)
-            self.spi = xheepSPI(self.AXI_SPI_ADDR, spi_irq, use_mtd=True)
+            self.spi = xheepSPI(self.AXI_SPI_ADDR, spi_irq)
             self.spi.unbind()
         else:
             log("warning", "SPI IP not found - PL SPI overlay unavailable (flash may still be accessible via PS mux)")

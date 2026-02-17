@@ -1,9 +1,32 @@
-loaded.xclbin
+# Build artifacts
 *.dtbo
 *.dts
-*.elf
-*.bin
+xheep_logs/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+.eggs/
+*.egg
+
+# FPGA files (keep templates, ignore generated)
 *.bit
 *.hwh
-xheep_logs/
-src/__pycache__/
+*.xclbin
+*.elf
+*.bin
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db

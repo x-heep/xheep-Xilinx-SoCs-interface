@@ -10,7 +10,7 @@ OVERLAY := xilinx_core_v_mini_mcu_wrapper.bit
 
 .PHONY: help install install-notebook run clean
 
-## Get help for commands in this folder
+# help target (documented in MakefileHelp script)
 help:
 	@FILE_FOR_HELP=Makefile util/MakefileHelp
 

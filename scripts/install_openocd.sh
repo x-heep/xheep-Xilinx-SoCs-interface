@@ -1,19 +1,40 @@
 set -euo pipefail
 
 # Script to fetch, patch, build and install OpenOCD v0.12.0
+# Skips the build if the binary at /usr/local/bin/openocd was already built
+# from the expected commit.
+#
 # Usage: ./install_openocd.sh [target_dir]
 
 REPO_URL="https://github.com/openocd-org/openocd.git"
 TAG="b9e40161613fd880fc85fdb357365b70e646ff23"
-# patch file in repository root
 PATCH_PATH="$(cd "$(dirname "$0")/.." && pwd)/patch/openocd.patch"
 TARGET_DIR="${1:-/usr/local/src/openocd}"
+OPENOCD_BIN="/usr/local/bin/openocd"
 
 echo "OpenOCD target: ${TARGET_DIR}"
-git clone "${REPO_URL}" "${TARGET_DIR}"
 
-cd "${TARGET_DIR}"
-git fetch --tags --all
+# ── Skip if already installed at the expected commit ─────────────────────────
+if [ -f "$OPENOCD_BIN" ] && [ -d "${TARGET_DIR}/.git" ]; then
+  INSTALLED_COMMIT="$(cd "${TARGET_DIR}" && git rev-parse HEAD 2>/dev/null || true)"
+  if [ "$INSTALLED_COMMIT" = "$TAG" ]; then
+    echo "OpenOCD already built from commit ${TAG} — skipping."
+    exit 0
+  else
+    echo "OpenOCD present but from a different commit (${INSTALLED_COMMIT}), rebuilding."
+  fi
+fi
+
+# ── Clone or reuse existing directory ────────────────────────────────────────
+if [ -d "${TARGET_DIR}/.git" ]; then
+  echo "Repository already exists at ${TARGET_DIR}, fetching tags."
+  cd "${TARGET_DIR}"
+  git fetch --tags --all
+else
+  git clone "${REPO_URL}" "${TARGET_DIR}"
+  cd "${TARGET_DIR}"
+  git fetch --tags --all
+fi
 
 echo "Checking out ${TAG}"
 git checkout "${TAG}" || git checkout -B "build-${TAG}" "${TAG}"
@@ -39,4 +60,4 @@ make -j"$(nproc)"
 sudo make install
 make clean
 
-echo "OpenOCD ${TAG} should now be installed."
+echo "OpenOCD ${TAG} installed."

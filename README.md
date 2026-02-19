@@ -74,6 +74,8 @@ This copies all necessary files (notebook, drivers, config, DTS templates) to `~
 ### System Packages
 - `device-tree-compiler` — compiles `.dts` templates into `.dtbo` binaries
 - `picocom` — serial terminal for UART monitoring
+- `gcc-riscv64-unknown-elf` — RISC-V cross-compiler for bare-metal RV32 targets
+- `picolibc-riscv64-unknown-elf` — bare-metal C library (provides `printf`, `memset`, etc.)
 
 ### Python Packages
 - `pynq` — FPGA bitstream management and MMIO access
@@ -151,19 +153,70 @@ The `xheepGPIO` class manages the following control signals via the `axi_gpio` I
 ```bash
 make install               # Install all system dependencies and build OpenOCD (requires sudo)
 make install-notebook      # Install Jupyter notebook interface to ~/jupyter_notebooks/xheep
+make app                   # Compile the hello_world app (produces .elf and .bin)
+make app APP=my_app        # Compile a custom application
+make app APP=my_app LINKER=flash_load  # Compile for flash boot
 make run                   # Run with default parameters
-make run LINKER=flash_load TARGET=firmware.elf OVERLAY=xheep_top.bit
+make run LINKER=flash_load TARGET=firmware.elf OVERLAY=xilinx_core_v_mini_mcu_wrapper.bit
 make help                  # Show all available targets and parameters
 ```
 
 **Makefile parameters:**
 
-| Variable   | Default                                   | Description                                   |
-| ---------- | ----------------------------------------- | --------------------------------------------- |
-| `OVERLAY`  | `xilinx_core_v_mini_mcu_wrapper.bit`      | Path to the FPGA bitstream                    |
-| `TARGET`   | `main.bin`                                | Path to the firmware file (`.elf` or `.bin`)  |
-| `LINKER`   | `on_chip`                                 | Execution mode: `on_chip`, `flash_load`, `flash_exec` |
-| `USER`     | `xilinx`                                  | Username for notebook installation path       |
+| Variable    | Default                                   | Description                                          |
+| ----------- | ----------------------------------------- | ---------------------------------------------------- |
+| `OVERLAY`   | `xilinx_core_v_mini_mcu_wrapper.bit`      | Path to the FPGA bitstream                           |
+| `TARGET`    | `main.bin`                                | Path to the firmware file (`.elf` or `.bin`)         |
+| `LINKER`    | `on_chip`                                 | Execution mode: `on_chip`, `flash_load`, `flash_exec`|
+| `USER`      | `xilinx`                                  | Username for notebook installation path              |
+| `APP`       | `hello_world`                             | Application name (folder under `sw/applications/`)  |
+| `XHEEP_SW`  | `../x-heep/sw`                            | Path to the x-heep `sw/` directory                  |
+
+### Building Applications
+
+Applications live under `sw/applications/<app_name>/main.c`.
+The build system uses `riscv64-unknown-elf-gcc` to compile for the CV32E40P (RV32IMC) core and produces both a `.elf` and a flat `.bin` image in `sw/build/<app_name>/`.
+
+```bash
+# Build hello_world (on-chip execution, PYNQ-Z2 clock/UART settings)
+# No external dependencies needed — device library is bundled in sw/device/
+make app
+
+# Build a custom application
+make app APP=my_app
+
+# Build for flash boot
+make app APP=my_app LINKER=flash_load
+
+# Run immediately after build
+make app APP=my_app && make run TARGET=sw/build/my_app/my_app.bin LINKER=on_chip
+```
+
+#### Creating a new application
+
+1. Create a directory `sw/applications/<app_name>/`
+2. Add a `main.c` file (standard C, bare-metal)
+3. Run `make app APP=<app_name>`
+
+The runtime provides `printf` output over the AXI UART (accessible via `/dev/ttyUL0` after `make run`).
+
+#### Supported target boards
+
+The `TARGET` variable selects the board-specific `x-heep.h` header (clock frequency, UART baud rate, etc.):
+
+| `TARGET` value | Board           | Clock  |
+| -------------- | --------------- | ------ |
+| `pynq-z2`      | PYNQ-Z2         | 15 MHz |
+| `aup-zu3`      | AUP-ZU3         | 50 MHz |
+
+Pass `TARGET=<value>` to `make app` to select a different board (default: `pynq-z2`).
+
+#### Toolchain and dependencies
+
+The `sw/Makefile` uses `riscv64-unknown-elf-gcc` together with `picolibc-riscv64-unknown-elf` (the bare-metal C library that ships with Ubuntu's RISC-V cross-toolchain).
+Both packages are listed in `util/apt-requirements.txt` and are automatically installed by `make install`.
+
+The x-heep device library (startup code, runtime, UART/SoC drivers) is **bundled directly in `sw/device/`**, so no external x-heep clone is required on the board.
 
 ### CLI
 

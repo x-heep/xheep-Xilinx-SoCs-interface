@@ -1,7 +1,7 @@
 set -euo pipefail
 
 # Clone, patch, build and install OpenOCD v0.12.0
-# Uses scripts/install_openocd.sh for the build and util/git-diff.py to check diffs
+# Skips the build entirely if OpenOCD is already installed at the expected commit.
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 OPENOCD_DIR="/usr/local/src/openocd"

@@ -3,13 +3,14 @@ ROOT := $(shell pwd)
 USER := xilinx
 NOTEBOOK_DIR := /home/$(USER)/jupyter_notebooks/xheep
 
-# Run parameters
-LINKER  := on_chip
-OVERLAY := xilinx_core_v_mini_mcu_wrapper.bit
+# Run / build parameters — all overridable on the command line
+LINKER  ?= on_chip
+BOARD   ?= pynq-z2
+APP     ?= hello_world
+OVERLAY ?= xilinx_core_v_mini_mcu_wrapper.bit
 
-# Application — only hello_world on pynq-z2 is supported for now
-APP    := hello_world
-TARGET := sw/build/$(APP)/$(APP).elf
+# Derived path to firmware (used by 'make run')
+TARGET  := sw/build/$(APP)/$(APP).elf
 
 .PHONY: help install install-notebook run app app-clean clean
 
@@ -46,17 +47,22 @@ install-notebook:
 
 ## @section Execution
 
-## Load hello_world onto PYNQ-Z2 via JTAG and run it
-## @param OVERLAY=xilinx_core_v_mini_mcu_wrapper.bit Path to bitstream file
+## Run firmware on x-heep via JTAG (or flash for flash_load/flash_exec)
+## @param APP=hello_world     Application to run (must be built first)
+## @param LINKER=on_chip      Execution mode: on_chip, flash_load, flash_exec
+## @param OVERLAY=...bit      Path to FPGA bitstream
 run:
 	@python3 src/xheepRun.py -o $(OVERLAY) -f $(TARGET) -m $(LINKER)
 
 ## @section Application Build
 
-## Compile hello_world for PYNQ-Z2 using the installed PULP RISC-V toolchain
-## Produces sw/build/hello_world/hello_world.{elf,bin}
+## Compile a RISC-V application using the installed PULP RISC-V toolchain
+## Produces sw/build/APP/APP.{elf,bin}
+## @param APP=hello_world     Application folder under sw/applications/
+## @param LINKER=on_chip      Linker mode: on_chip, flash_load, flash_exec
+## @param BOARD=pynq-z2       Target board: pynq-z2, aup-zu3
 app:
-	@$(MAKE) -C sw LINKER=$(LINKER)
+	@$(MAKE) -C sw APP=$(APP) LINKER=$(LINKER) TARGET=$(BOARD)
 	@echo "Firmware ready: $(TARGET)"
 
 ## Clean application build artefacts

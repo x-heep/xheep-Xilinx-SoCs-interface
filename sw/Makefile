@@ -1,14 +1,17 @@
-# sw/Makefile — RISC-V bare-metal application build for x-heep on PYNQ-Z2
+# sw/Makefile — RISC-V bare-metal application build for x-heep
 #
-# Compiles hello_world for the x-heep (CV32E40P) RISC-V 32-bit processor
-# using the PULP RISC-V toolchain (riscv32-unknown-elf-gcc at /opt/pulp-riscv).
-# Produces both .elf and .bin under sw/build/hello_world/.
+# Compiles a bare-metal application for the x-heep (CV32E40P) RISC-V 32-bit
+# processor using the PULP RISC-V toolchain (riscv32-unknown-elf-gcc).
 #
-# Usage:
-#   make                      # build hello_world (on_chip mode)
-#   make LINKER=flash_load    # build for flash-load mode
+# Usage (from this directory):
+#   make                               # hello_world, on_chip, pynq-z2
+#   make LINKER=flash_load             # flash-load mode
+#   make LINKER=flash_exec             # flash-exec mode
+#   make TARGET=aup-zu3                # different board
+#   make APP=hello_world               # explicit app (only one supported now)
 #
 # Supported LINKER modes : on_chip (default), flash_load, flash_exec
+# Supported TARGET boards : pynq-z2 (default), aup-zu3
 
 # ── Toolchain ─────────────────────────────────────────────────────────────────
 # PULP RISC-V toolchain installed by 'make install' at /opt/pulp-riscv.
@@ -32,10 +35,9 @@ $(error device library not found at '$(XHEEP_SW)/device'. \
 endif
 
 # ── Build parameters ──────────────────────────────────────────────────────────
-# Only hello_world on pynq-z2 is supported for now.
-APP    := hello_world
+APP    ?= hello_world
 LINKER ?= on_chip
-TARGET := pynq-z2
+TARGET ?= pynq-z2
 
 BUILD_DIR = build/$(APP)
 

@@ -48,7 +48,7 @@ During installation, the script automatically:
 1. **Clones OpenOCD** from the official repository at version v0.12.0
 2. **Applies a custom patch** (`patch/openocd.patch`) required for correct operation with the x-heep RISC-V core:
    - Disables `vlenb` register probing unless the vector extension (V) is present in MISA
-   - Disables `MTOPI`/`MTOPEI` privileged interrupt register probing (unsupported by x-heep)
+   - Disables `MTOPI`/`MTOPEI` privileged interrupt register probing
    - Replaces hard assertions with warnings for graceful degradation
 3. **Builds OpenOCD** with the following features enabled:
    - FTDI interface support (`--enable-ftdi`)

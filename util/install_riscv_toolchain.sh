@@ -1,16 +1,19 @@
 set -euo pipefail
 
-# Download and install the PULP RISC-V toolchain for ARM (armhf/PYNQ-Z2 hosts).
-# Skips installation entirely if the toolchain binary is already present.
-#
-# Requires: curl, python3, sudo (called by install target which already has sudo -v).
-# The toolchain repo CI must publish a GitHub Release with pulp-toolchain-armhf.tar.gz
-# as a release asset (tag "latest"). See docs for the required CI snippet.
+# Download and install the PULP RISC-V toolchain for ARM (armhf/aarch64)
+# Skips installation entirely if the toolchain binary is already present
 
 TOOLCHAIN_REPO="Christian-Conti/riscv-pulp-Xilinx-SoCs-toolchain"
 INSTALL_DIR="/opt/pulp-riscv"
 TOOL_BIN="${INSTALL_DIR}/bin/riscv32-unknown-elf-gcc"
-ASSET_NAME="pulp-toolchain-armhf.tar.gz"
+
+# ── Select asset based on target board ────────────────────────────────────────
+if [ "${BOARD:-}" = "Pynq-Z2" ]; then
+  ASSET_NAME="pulp-toolchain-host-armhf-xheep-rv32imc.tar.gz"
+else
+  ASSET_NAME="pulp-toolchain-host-aarch64-xheep-rv32imc.tar.gz"
+fi
+echo "Board: ${BOARD:-<not set>} → using asset: ${ASSET_NAME}"
 
 # ── Skip if already installed ─────────────────────────────────────────────────
 if [ -x "$TOOL_BIN" ]; then
@@ -49,7 +52,7 @@ curl -fSL --progress-bar -o "${TMP}/${ASSET_NAME}" "$ASSET_URL"
 
 # ── Install ───────────────────────────────────────────────────────────────────
 # The archive is expected to contain a top-level "pulp-riscv/" directory,
-# i.e. it was created with: tar -czf pulp-toolchain-armhf.tar.gz -C /opt pulp-riscv
+# i.e. it was created with: tar -czf <asset-name>.tar.gz -C /opt pulp-riscv
 echo "Installing toolchain to ${INSTALL_DIR}..."
 sudo mkdir -p /opt
 sudo tar -xzf "${TMP}/${ASSET_NAME}" -C /opt

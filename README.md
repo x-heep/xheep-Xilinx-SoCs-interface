@@ -30,38 +30,6 @@ The project acts as a bridge between the Xilinx ARM-based Processing System and 
 
 ---
 
-## Repository Structure
-
-```
-x-heep-Xilinx-interface/
-├── Makefile                           # Build automation (install, run, notebook)
-├── src/
-│   ├── xheepDriver.py                # Core Python driver library
-│   └── xheepRun.py                   # CLI execution script
-├── notebook/
-│   ├── xheepNotebook.ipynb           # Interactive Jupyter notebook interface
-│   └── notebookUtils.py              # Notebook helper functions
-├── cfg/
-│   └── xheep_xilinx_xvc.cfg          # OpenOCD configuration for AXI XVC
-├── dts/
-│   ├── uartlite-zynq.tpl             # AXI UART overlay template for Zynq-7000
-│   ├── uartlite-ultrascale.tpl       # AXI UART overlay template for ZynqMP
-│   ├── spi-zynq.tpl                  # AXI SPI overlay template for Zynq-7000
-│   └── spi-ultrascale.tpl            # AXI SPI overlay template for ZynqMP
-├── patch/
-│   └── openocd.patch                 # Compatibility patch for x-heep RISC-V core
-├── scripts/
-│   └── install_openocd.sh            # OpenOCD v0.12.0 build and install script
-└── util/
-    ├── install_apt.sh                # APT system package installer
-    ├── install_git.sh                # OpenOCD installation orchestrator
-    ├── install_python.sh             # Python virtual environment setup
-    ├── apt-requirements.txt          # System package list
-    └── python-requirements.txt       # Python dependency list
-```
-
----
-
 ## Installation
 
 The installation process is fully automated through a single command.

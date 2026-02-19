@@ -1,19 +1,21 @@
-# sw/Makefile — RISC-V bare-metal application build for x-heep
+# sw/Makefile — RISC-V bare-metal application build for x-heep on PYNQ-Z2
 #
-# Compiles a C application for the x-heep (CV32E40P) RISC-V 32-bit processor
-# using riscv64-unknown-elf-gcc and produces both .elf and .bin artefacts.
+# Compiles hello_world for the x-heep (CV32E40P) RISC-V 32-bit processor
+# using the PULP RISC-V toolchain (riscv32-unknown-elf-gcc at /opt/pulp-riscv).
+# Produces both .elf and .bin under sw/build/hello_world/.
 #
 # Usage:
-#   make                      # build sw/applications/hello_world
-#   make APP=my_app           # build sw/applications/my_app
-#   make APP=my_app LINKER=flash_load
+#   make                      # build hello_world (on_chip mode)
+#   make LINKER=flash_load    # build for flash-load mode
 #
 # Supported LINKER modes : on_chip (default), flash_load, flash_exec
-# Supported TARGET boards : pynq-z2 (default), aup-zu3
 
 # ── Toolchain ─────────────────────────────────────────────────────────────────
-RISCV_GCC     ?= riscv64-unknown-elf-gcc
-RISCV_OBJCOPY ?= riscv64-unknown-elf-objcopy
+# PULP RISC-V toolchain installed by 'make install' at /opt/pulp-riscv.
+# Override RISCV to point at a different installation if needed.
+RISCV         ?= /opt/pulp-riscv
+RISCV_GCC     ?= $(RISCV)/bin/riscv32-unknown-elf-gcc
+RISCV_OBJCOPY ?= $(RISCV)/bin/riscv32-unknown-elf-objcopy
 ARCH          ?= rv32imc
 ABI           ?= ilp32
 
@@ -30,9 +32,10 @@ $(error device library not found at '$(XHEEP_SW)/device'. \
 endif
 
 # ── Build parameters ──────────────────────────────────────────────────────────
-APP    ?= hello_world
+# Only hello_world on pynq-z2 is supported for now.
+APP    := hello_world
 LINKER ?= on_chip
-TARGET ?= pynq-z2
+TARGET := pynq-z2
 
 BUILD_DIR = build/$(APP)
 
@@ -76,9 +79,9 @@ LDFLAGS = \
 	-Wl,-Map=$(BUILD_DIR)/$(APP).map \
 	-Wl,--gc-sections \
 	-ffunction-sections -fdata-sections \
-	-specs=picolibc.specs
+	-specs=nosys.specs
 
-LDLIBS = -lc -lm -lgcc
+LDLIBS = -lc -lgcc
 
 # ── Include paths ─────────────────────────────────────────────────────────────
 INCLUDES = \

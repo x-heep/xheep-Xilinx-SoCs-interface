@@ -3,14 +3,13 @@ ROOT := $(shell pwd)
 USER := xilinx
 NOTEBOOK_DIR := /home/$(USER)/jupyter_notebooks/xheep
 
-# Run parameters with defaults
+# Run parameters
 LINKER  := on_chip
-TARGET  := sw/build/$(APP)/$(APP).elf
 OVERLAY := xilinx_core_v_mini_mcu_wrapper.bit
 
-# App build parameters with defaults
-APP       ?= hello_world
-XHEEP_SW  ?= sw
+# Application — only hello_world on pynq-z2 is supported for now
+APP    := hello_world
+TARGET := sw/build/$(APP)/$(APP).elf
 
 .PHONY: help install install-notebook run app app-clean clean
 
@@ -47,22 +46,18 @@ install-notebook:
 
 ## @section Execution
 
-## Run x-heep with specified firmware and overlay
-## @param LINKER=on_chip Linker/execution mode: on_chip (JTAG), flash_load, or flash_exec
-## @param TARGET=sw/build/APP/APP.elf Path to firmware .elf (xheepRun.py finds .bin for flash modes)
+## Load hello_world onto PYNQ-Z2 via JTAG and run it
 ## @param OVERLAY=xilinx_core_v_mini_mcu_wrapper.bit Path to bitstream file
 run:
 	@python3 src/xheepRun.py -o $(OVERLAY) -f $(TARGET) -m $(LINKER)
 
 ## @section Application Build
 
-## Compile a RISC-V application for x-heep (produces .elf and .bin)
-## @param APP=hello_world Application name (folder under sw/applications/)
-## @param LINKER=on_chip Linker/execution mode: on_chip, flash_load, flash_exec
-## @param XHEEP_SW=sw Device library root (default: bundled sw/device/)
+## Compile hello_world for PYNQ-Z2 using the installed PULP RISC-V toolchain
+## Produces sw/build/hello_world/hello_world.{elf,bin}
 app:
-	@$(MAKE) -C sw APP=$(APP) LINKER=$(LINKER) XHEEP_SW=$(ROOT)/$(XHEEP_SW)
-	@echo "Firmware ready: sw/build/$(APP)/$(APP).elf  sw/build/$(APP)/$(APP).bin"
+	@$(MAKE) -C sw LINKER=$(LINKER)
+	@echo "Firmware ready: $(TARGET)"
 
 ## Clean application build artefacts
 app-clean:

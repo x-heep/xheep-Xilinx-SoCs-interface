@@ -290,8 +290,9 @@ void _writestr(const void *ptr)
 
 /* ── picolibc tinystdio stdout/stderr ────────────────────────────────────────
  * picolibc's tinystdio routes printf/puts through FILE* stream callbacks,
- * NOT through _write().  Define stdout/stderr backed by the UART _write path.
- * stdin is set to NULL (no console input). */
+ * NOT through _write().  With newlib, _write() is called directly by stdio,
+ * so this block is only needed when building with picolibc. */
+#ifdef __PICOLIBC__
 static int _uart_put(char c, FILE *f)
 {
     (void)f;
@@ -303,6 +304,7 @@ static FILE _uart_file = FDEV_SETUP_STREAM(_uart_put, NULL, NULL, _FDEV_SETUP_WR
 FILE *const stdout = &_uart_file;
 FILE *const stderr = &_uart_file;
 FILE *const stdin  = NULL;
+#endif /* __PICOLIBC__ */
 
 extern char __heap_start[];
 extern char __heap_end[];

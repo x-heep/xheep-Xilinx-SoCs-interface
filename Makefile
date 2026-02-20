@@ -63,7 +63,6 @@ run:
 ## @param BOARD=pynq-z2       Target board: pynq-z2, aup-zu3
 app:
 	@$(MAKE) -C sw APP=$(APP) LINKER=$(LINKER) TARGET=$(BOARD)
-	@echo "Firmware ready: $(TARGET)"
 
 ## Clean application build artefacts
 app-clean:

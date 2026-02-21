@@ -12,7 +12,7 @@ OVERLAY ?= xilinx_core_v_mini_mcu_wrapper.bit
 # Derived path to firmware (used by 'make run')
 TARGET  := sw/build/$(APP)/$(APP).elf
 
-.PHONY: help install install-notebook run app app-clean clean
+.PHONY: help install install-notebook uninstall uninstall-notebook run app app-clean clean
 
 # help target (documented in MakefileHelp script)
 help:
@@ -29,6 +29,17 @@ install:
 	@bash util/install_riscv_toolchain.sh
 	@sudo bash -c "grep -qxF 'source /etc/profile.d/pynq_venv.sh' /root/.bashrc || echo 'source /etc/profile.d/pynq_venv.sh' >> /root/.bashrc"
 	@sudo bash -c "grep -qxF 'cd /home/xilinx' /root/.bashrc || echo 'cd /home/xilinx' >> /root/.bashrc"
+
+## Uninstall toolchain and remove PATH entries from shell profiles
+uninstall:
+	@sudo -v || (echo "sudo is required. Run 'sudo -v' to cache credentials and retry." && exit 1)
+	@bash util/uninstall_riscv_toolchain.sh
+
+## Uninstall notebook files from jupyter_notebooks directory
+## @param USER=xilinx(default) Username for jupyter installation path
+uninstall-notebook:
+	@rm -rf $(NOTEBOOK_DIR)
+	@echo "Notebook uninstalled from $(NOTEBOOK_DIR)"
 
 ## Install notebook and dependencies to jupyter_notebooks directory
 ## @param USER=xilinx(default) Username for jupyter installation path

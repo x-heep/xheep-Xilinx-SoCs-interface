@@ -1,6 +1,6 @@
 RISCV         ?= /opt/pulp-riscv
-RISCV_GCC     ?= $(RISCV)/bin/riscv32-unknown-elf-gcc
-RISCV_OBJCOPY ?= $(RISCV)/bin/riscv32-unknown-elf-objcopy
+RISCV_GCC     ?= $(RISCV)/bin/riscv32-corev-elf-gcc
+RISCV_OBJCOPY ?= $(RISCV)/bin/riscv32-corev-elf-objcopy
 ARCH          ?= rv32imc
 ABI           ?= ilp32
 

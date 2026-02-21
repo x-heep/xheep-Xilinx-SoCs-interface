@@ -1,40 +1,20 @@
-# sw/Makefile — RISC-V bare-metal application build for x-heep
-#
-# Compiles a bare-metal application for the x-heep (CV32E40P) RISC-V 32-bit
-# processor using the PULP RISC-V toolchain (riscv32-unknown-elf-gcc).
-#
-# Usage (from this directory):
-#   make                               # hello_world, on_chip, pynq-z2
-#   make LINKER=flash_load             # flash-load mode
-#   make LINKER=flash_exec             # flash-exec mode
-#   make TARGET=aup-zu3                # different board
-#   make APP=hello_world               # explicit app (only one supported now)
-#
-# Supported LINKER modes : on_chip (default), flash_load, flash_exec
-# Supported TARGET boards : pynq-z2 (default), aup-zu3
-
-# PULP RISC-V toolchain installed by 'make install' at /opt/pulp-riscv.
-# Override RISCV to point at a different installation if needed.
 RISCV         ?= /opt/pulp-riscv
 RISCV_GCC     ?= $(RISCV)/bin/riscv32-unknown-elf-gcc
 RISCV_OBJCOPY ?= $(RISCV)/bin/riscv32-unknown-elf-objcopy
 ARCH          ?= rv32imc
 ABI           ?= ilp32
 
-# Device library root — defaults to the bundled sw/device/ in this repo.
-# Override with the x-heep sw/ path if you have a full clone available:
-#   make app XHEEP_SW=/path/to/x-heep/sw
 XHEEP_SW ?= $(CURDIR)
 
 ifeq ($(wildcard $(XHEEP_SW)/device/lib/crt/crt0.S),)
-$(error device library not found at '$(XHEEP_SW)/device'. \
-  The bundled sw/device/ may be missing — check your checkout.)
+$(error device library not found at '$(XHEEP_SW)/device')
 endif
 
 APP    ?= hello_world
 LINKER ?= on_chip
 TARGET ?= pynq-z2
 
+TARGET_LC := $(shell echo $(TARGET) | tr '[:upper:]' '[:lower:]')
 BUILD_DIR = build/$(APP)
 
 ifeq ($(LINKER),flash_load)
@@ -45,10 +25,6 @@ else
   LINKER_SCRIPT = linker/link.ld
 endif
 
-# crt0.S gates the flash→RAM .data copy and the flash-load bootstrap behind
-# #ifdef FLASH_EXEC / #ifdef FLASH_LOAD.  The define MUST match the linker
-# script, otherwise global initialised data is never copied and the firmware
-# crashes on first access to any global variable.
 ifeq ($(LINKER),flash_exec)
   LINKER_DEF := -DFLASH_EXEC
 else ifeq ($(LINKER),flash_load)
@@ -58,52 +34,49 @@ else
 endif
 
 CFLAGS = \
-	-march=$(ARCH) -mabi=$(ABI) \
-	-O2 -g -w \
-	-nostartfiles \
-	-ffunction-sections -fdata-sections \
-	-DHOST_BUILD $(LINKER_DEF) -DINTERNAL_CRTO
+    -march=$(ARCH) -mabi=$(ABI) \
+    -O2 -g -w \
+    -nostartfiles \
+    -msave-restore \
+    -ffunction-sections -fdata-sections \
+    -DHOST_BUILD $(LINKER_DEF) -DINTERNAL_CRTO
 
-# LDLIBS is intentionally kept separate and appended AFTER $(ALL_SRCS) in the
-# link rule so that our compiled objects (which define stdout, _sbrk, etc.)
-# are visible to the linker before it searches the C library archives.
 LDFLAGS = \
-	-T $(LINKER_SCRIPT) \
-	-static \
-	-Wl,-Map=$(BUILD_DIR)/$(APP).map \
-	-Wl,--gc-sections \
-	-ffunction-sections -fdata-sections \
-	-specs=nosys.specs
+    -T $(LINKER_SCRIPT) \
+    -static \
+    -Wl,-Map=$(BUILD_DIR)/$(APP).map \
+    -Wl,--gc-sections \
+    -ffunction-sections -fdata-sections \
+    -specs=nosys.specs
 
 LDLIBS = -lc -lgcc
 
 INCLUDES = \
-	-I$(XHEEP_SW)/device/target/$(TARGET) \
-	-I$(XHEEP_SW)/device/lib/runtime \
-	-I$(XHEEP_SW)/device/lib/base \
-	-I$(XHEEP_SW)/device/lib/base/freestanding \
-	-I$(XHEEP_SW)/device/lib/drivers/soc_ctrl \
-	-I$(XHEEP_SW)/device/lib/drivers/uart \
-	-I$(XHEEP_SW)/device/lib/drivers/fast_intr_ctrl \
-	-I$(XHEEP_SW)/device/lib/drivers/$(TARGET) \
-	-Iapplications/$(APP)
+    -I$(XHEEP_SW)/device/target/$(TARGET_LC) \
+    -I$(XHEEP_SW)/device/lib/runtime \
+    -I$(XHEEP_SW)/device/lib/base \
+    -I$(XHEEP_SW)/device/lib/base/freestanding \
+    -I$(XHEEP_SW)/device/lib/drivers/soc_ctrl \
+    -I$(XHEEP_SW)/device/lib/drivers/uart \
+    -I$(XHEEP_SW)/device/lib/drivers/fast_intr_ctrl \
+    -Iapplications/$(APP)
 
 CRT_SRCS = \
-	$(XHEEP_SW)/device/lib/crt/crt0.S \
-	$(XHEEP_SW)/device/lib/crt/vectors.S
+    $(XHEEP_SW)/device/lib/crt/crt0.S \
+    $(XHEEP_SW)/device/lib/crt/vectors.S
 
 RUNTIME_SRCS = \
-	$(XHEEP_SW)/device/lib/runtime/syscalls.c \
-	$(XHEEP_SW)/device/lib/runtime/core_v_mini_mcu.c \
-	$(XHEEP_SW)/device/lib/runtime/handler.c \
-	$(XHEEP_SW)/device/lib/runtime/init.c \
-	$(XHEEP_SW)/device/lib/base/memory.c \
-	$(XHEEP_SW)/device/lib/base/mmio.c
+    $(XHEEP_SW)/device/lib/runtime/syscalls.c \
+    $(XHEEP_SW)/device/lib/runtime/core_v_mini_mcu.c \
+    $(XHEEP_SW)/device/lib/runtime/handler.c \
+    $(XHEEP_SW)/device/lib/runtime/init.c \
+    $(XHEEP_SW)/device/lib/base/memory.c \
+    $(XHEEP_SW)/device/lib/base/mmio.c
 
 DRIVER_SRCS = \
-	$(XHEEP_SW)/device/lib/drivers/uart/uart.c \
-	$(XHEEP_SW)/device/lib/drivers/soc_ctrl/soc_ctrl.c \
-	$(XHEEP_SW)/device/lib/drivers/fast_intr_ctrl/fast_intr_ctrl.c
+    $(XHEEP_SW)/device/lib/drivers/uart/uart.c \
+    $(XHEEP_SW)/device/lib/drivers/soc_ctrl/soc_ctrl.c \
+    $(XHEEP_SW)/device/lib/drivers/fast_intr_ctrl/fast_intr_ctrl.c
 
 APP_SRCS = applications/$(APP)/main.c
 

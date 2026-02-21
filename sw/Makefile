@@ -1,8 +1,23 @@
-RISCV         ?= /opt/pulp-riscv
+# Toolchain flavor — selects compiler prefix, march and mabi automatically.
+# Allowed values: base (default), float, zfinx
+EXTENSION ?= base
+
+ifeq ($(EXTENSION),float)
+  RISCV ?= /opt/openhw-riscv-float
+  ARCH  ?= rv32imfc
+  ABI   ?= ilp32f
+else ifeq ($(EXTENSION),zfinx)
+  RISCV ?= /opt/openhw-riscv-zfinx
+  ARCH  ?= rv32imc_zfinx
+  ABI   ?= ilp32
+else
+  RISCV ?= /opt/openhw-riscv-base
+  ARCH  ?= rv32imc
+  ABI   ?= ilp32
+endif
+
 RISCV_GCC     ?= $(RISCV)/bin/riscv32-corev-elf-gcc
 RISCV_OBJCOPY ?= $(RISCV)/bin/riscv32-corev-elf-objcopy
-ARCH          ?= rv32imc
-ABI           ?= ilp32
 
 XHEEP_SW ?= $(CURDIR)
 

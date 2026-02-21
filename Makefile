@@ -4,10 +4,11 @@ USER := xilinx
 NOTEBOOK_DIR := /home/$(USER)/jupyter_notebooks/xheep
 
 # Run / build parameters — all overridable on the command line
-LINKER  ?= on_chip
-BOARD   ?= pynq-z2
-APP     ?= hello_world
-OVERLAY ?= xilinx_core_v_mini_mcu_wrapper.bit
+LINKER    ?= on_chip
+BOARD     ?= pynq-z2
+APP       ?= hello_world
+OVERLAY   ?= xilinx_core_v_mini_mcu_wrapper.bit
+EXTENSION ?= base
 
 # Derived path to firmware (used by 'make run')
 TARGET  := sw/build/$(APP)/$(APP).elf
@@ -67,13 +68,14 @@ run:
 
 ## @section Application Build
 
-## Compile a RISC-V application using the installed PULP RISC-V toolchain
+## Compile a RISC-V application using the installed CoreV RISC-V toolchain
 ## Produces sw/build/APP/APP.{elf,bin}
 ## @param APP=hello_world     Application folder under sw/applications/
 ## @param LINKER=on_chip      Linker mode: on_chip, flash_load, flash_exec
 ## @param BOARD=pynq-z2       Target board: pynq-z2, aup-zu3
+## @param EXTENSION=base      Toolchain flavor: base (rv32imc), float (rv32imfc), zfinx (rv32imc_zfinx)
 app:
-	@$(MAKE) -C sw APP=$(APP) LINKER=$(LINKER) TARGET=$(BOARD)
+	@$(MAKE) -C sw APP=$(APP) LINKER=$(LINKER) TARGET=$(BOARD) EXTENSION=$(EXTENSION)
 
 ## Clean application build artefacts
 app-clean:

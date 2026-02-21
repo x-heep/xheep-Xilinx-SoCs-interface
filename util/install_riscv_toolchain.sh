@@ -1,14 +1,24 @@
 #!/bin/bash
 set -euo pipefail
 
-# Download and install the CoreV RISC-V toolchain for X-HEEP (xheep-base flavor)
+# Download and install the CoreV RISC-V toolchain for X-HEEP (all xheep flavors)
 # from the riscv-Xilinx-SoCs-toolchain GitHub release.
-# Skips installation entirely if the toolchain binary is already present.
+# Skips individual flavors that are already installed.
+#
+# Installed flavors and their symlinks under /opt:
+#   xheep-base   → /opt/openhw-riscv-base   (rv32imc  / ilp32,  no FPU)
+#   xheep-float  → /opt/openhw-riscv-float  (rv32imfc / ilp32f, hardware FPU)
+#   xheep-zfinx  → /opt/openhw-riscv-zfinx  (rv32imc  / ilp32,  Zfinx)
 
 TOOLCHAIN_REPO="Christian-Conti/riscv-Xilinx-SoCs-toolchain"
-FLAVOR="xheep-base"
 INSTALL_BASE="/opt"
-SYMLINK="/opt/pulp-riscv"
+
+declare -A FLAVOR_SYMLINK=(
+  [xheep-base]="/opt/openhw-riscv-base"
+  [xheep-float]="/opt/openhw-riscv-float"
+  [xheep-zfinx]="/opt/openhw-riscv-zfinx"
+)
+FLAVORS=(xheep-base xheep-float xheep-zfinx)
 
 # Detect host architecture
 MACHINE=$(uname -m)
@@ -21,23 +31,31 @@ case "$MACHINE" in
     ;;
 esac
 
-EXTRACTED_DIR="riscv-${ARCH_LABEL}-${FLAVOR}"
-INSTALL_DIR="${INSTALL_BASE}/${EXTRACTED_DIR}"
-TOOL_BIN="${INSTALL_DIR}/bin/riscv32-corev-elf-gcc"
-ASSET_PREFIX="riscv-toolchain-${ARCH_LABEL}-${FLAVOR}-"
-
 echo "Detected host architecture: ${ARCH_LABEL}"
-echo "Toolchain flavor: ${FLAVOR}"
 
-if [ -x "$TOOL_BIN" ]; then
-  echo "CoreV RISC-V toolchain already installed at ${INSTALL_DIR} — skipping."
-  exit 0
-fi
-
+# Fetch release metadata once
 echo "Fetching latest release info from ${TOOLCHAIN_REPO}..."
 LATEST_API="https://api.github.com/repos/${TOOLCHAIN_REPO}/releases/latest"
+RELEASE_JSON=$(curl -fsSL "$LATEST_API")
 
-ASSET_URL=$(curl -fsSL "$LATEST_API" | python3 -c "
+for FLAVOR in "${FLAVORS[@]}"; do
+  EXTRACTED_DIR="riscv-${ARCH_LABEL}-${FLAVOR}"
+  INSTALL_DIR="${INSTALL_BASE}/${EXTRACTED_DIR}"
+  TOOL_BIN="${INSTALL_DIR}/bin/riscv32-corev-elf-gcc"
+  ASSET_PREFIX="riscv-toolchain-${ARCH_LABEL}-${FLAVOR}-"
+  SYMLINK="${FLAVOR_SYMLINK[$FLAVOR]}"
+
+  echo ""
+  echo "==> Flavor: ${FLAVOR}"
+
+  if [ -x "$TOOL_BIN" ]; then
+    echo "    Already installed at ${INSTALL_DIR} — skipping."
+    # Ensure the symlink is still correct even on re-runs
+    sudo ln -sfn "${INSTALL_DIR}" "${SYMLINK}"
+    continue
+  fi
+
+  ASSET_URL=$(echo "$RELEASE_JSON" | python3 -c "
 import sys, json
 data = json.load(sys.stdin)
 prefix = '${ASSET_PREFIX}'
@@ -47,45 +65,45 @@ for a in data.get('assets', []):
         break
 " 2>/dev/null || true)
 
-if [ -z "$ASSET_URL" ]; then
-  echo "" >&2
-  echo "Error: Could not find asset matching '${ASSET_PREFIX}*' in the latest release of ${TOOLCHAIN_REPO}." >&2
-  echo "Make sure the CI workflow has published a GitHub Release with the xheep-base flavor." >&2
-  exit 1
-fi
+  if [ -z "$ASSET_URL" ]; then
+    echo "    Error: could not find asset matching '${ASSET_PREFIX}*' in the latest release." >&2
+    exit 1
+  fi
 
-ASSET_NAME=$(basename "$ASSET_URL")
-TMP=$(mktemp -d)
-trap 'rm -rf "$TMP"' EXIT
+  ASSET_NAME=$(basename "$ASSET_URL")
+  TMP=$(mktemp -d)
+  trap 'rm -rf "$TMP"' EXIT
 
-echo "Downloading ${ASSET_NAME} from:"
-echo "  ${ASSET_URL}"
-curl -fSL --progress-bar -o "${TMP}/${ASSET_NAME}" "$ASSET_URL"
+  echo "    Downloading ${ASSET_NAME}..."
+  curl -fSL --progress-bar -o "${TMP}/${ASSET_NAME}" "$ASSET_URL"
 
-echo "Extracting toolchain to ${INSTALL_DIR}..."
-sudo tar -xzf "${TMP}/${ASSET_NAME}" -C "${INSTALL_BASE}"
+  echo "    Extracting to ${INSTALL_DIR}..."
+  sudo tar -xzf "${TMP}/${ASSET_NAME}" -C "${INSTALL_BASE}"
 
-# Create symlink so the generic /opt/pulp-riscv path works in sw/Makefile
-echo "Creating symlink ${SYMLINK} -> ${INSTALL_DIR}"
-sudo ln -sfn "${INSTALL_DIR}" "${SYMLINK}"
+  if [ ! -x "$TOOL_BIN" ]; then
+    echo "    Error: ${TOOL_BIN} not found after extraction." >&2
+    echo "    Check the archive structure (expected top-level: ${EXTRACTED_DIR}/)." >&2
+    exit 1
+  fi
 
-if [ ! -x "$TOOL_BIN" ]; then
-  echo "Error: installation finished but ${TOOL_BIN} not found." >&2
-  echo "Check the archive structure (expected top-level directory: ${EXTRACTED_DIR}/)." >&2
-  exit 1
-fi
+  echo "    Creating symlink ${SYMLINK} -> ${INSTALL_DIR}"
+  sudo ln -sfn "${INSTALL_DIR}" "${SYMLINK}"
 
-PATH_LINE="export PATH=\"${INSTALL_DIR}/bin:\$PATH\""
-if ! grep -qF "$PATH_LINE" /root/.bashrc 2>/dev/null; then
-  echo "$PATH_LINE" | sudo tee -a /root/.bashrc > /dev/null
-  echo "Added ${INSTALL_DIR}/bin to /root/.bashrc"
-fi
+  PATH_LINE="export PATH=\"${INSTALL_DIR}/bin:\$PATH\""
+  if ! grep -qF "$PATH_LINE" /root/.bashrc 2>/dev/null; then
+    echo "$PATH_LINE" | sudo tee -a /root/.bashrc > /dev/null
+  fi
+  if [ "${USER:-}" != "root" ] && ! grep -qF "$PATH_LINE" "$HOME/.bashrc" 2>/dev/null; then
+    echo "$PATH_LINE" >> "$HOME/.bashrc"
+  fi
 
-# Also add to the current user's bashrc in case they aren't root
-if [ "${USER:-}" != "root" ] && ! grep -qF "$PATH_LINE" "$HOME/.bashrc" 2>/dev/null; then
-  echo "$PATH_LINE" >> "$HOME/.bashrc"
-  echo "Added ${INSTALL_DIR}/bin to $HOME/.bashrc"
-fi
+  echo "    Done: ${INSTALL_DIR}"
+done
 
-echo "CoreV RISC-V toolchain (${FLAVOR} / ${ARCH_LABEL}) successfully installed at ${INSTALL_DIR}."
-echo "Re-source your shell or run: export PATH=\"${INSTALL_DIR}/bin:\$PATH\""
+echo ""
+echo "All xheep toolchain flavors installed:"
+echo "  /opt/openhw-riscv-base  — rv32imc  / ilp32  (no FPU)"
+echo "  /opt/openhw-riscv-float — rv32imfc / ilp32f (hardware FPU)"
+echo "  /opt/openhw-riscv-zfinx — rv32imc  / ilp32  (Zfinx)"
+echo ""
+echo "Re-source your shell or open a new terminal to pick up the updated PATH."

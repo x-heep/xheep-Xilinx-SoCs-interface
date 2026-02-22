@@ -5,12 +5,13 @@ set -euo pipefail
 # from the riscv-Xilinx-SoCs-toolchain GitHub release.
 # Skips the flavor if it is already installed.
 #
-# Usage: install_riscv_toolchain.sh [base|float|zfinx]   (default: base)
+# Usage: install_riscv_toolchain.sh [base|float|zfinx|all]   (default: base)
 #
 # Available flavors and their symlinks under /opt:
 #   base   (xheep-base)   → /opt/openhw-riscv-base   (rv32imc  / ilp32,  no FPU)
 #   float  (xheep-float)  → /opt/openhw-riscv-float  (rv32imfc / ilp32f, hardware FPU)
 #   zfinx  (xheep-zfinx)  → /opt/openhw-riscv-zfinx  (rv32imc  / ilp32,  Zfinx)
+#   all                   → installs all three flavors above
 
 TOOLCHAIN_REPO="Christian-Conti/riscv-Xilinx-SoCs-toolchain"
 INSTALL_BASE="/opt"
@@ -21,16 +22,20 @@ declare -A FLAVOR_SYMLINK=(
   [xheep-zfinx]="/opt/openhw-riscv-zfinx"
 )
 
-# Select flavor from first argument (base | float | zfinx), default: base
+# Select flavor from first argument (base | float | zfinx | all), default: base
 EXTENSION="${1:-base}"
 case "$EXTENSION" in
-  base|float|zfinx) ;;
+  base|float|zfinx)
+    FLAVORS=("xheep-${EXTENSION}")
+    ;;
+  all)
+    FLAVORS=(xheep-base xheep-float xheep-zfinx)
+    ;;
   *)
-    echo "Unknown extension '${EXTENSION}'. Valid values: base, float, zfinx" >&2
+    echo "Unknown extension '${EXTENSION}'. Valid values: base, float, zfinx, all" >&2
     exit 1
     ;;
 esac
-FLAVORS=("xheep-${EXTENSION}")
 
 # Detect host architecture
 MACHINE=$(uname -m)
@@ -147,7 +152,10 @@ else
 fi
 
 echo ""
-echo "xheep toolchain flavor '${EXTENSION}' installed:"
-echo "  ${FLAVOR_SYMLINK[xheep-${EXTENSION}]}  →  ${INSTALL_BASE}/riscv-${ARCH_LABEL}-xheep-${EXTENSION}"
+echo "xheep toolchain flavor(s) installed:"
+for FLAVOR in "${FLAVORS[@]}"; do
+  F="${FLAVOR#xheep-}"
+  echo "  ${FLAVOR_SYMLINK[$FLAVOR]}  →  ${INSTALL_BASE}/riscv-${ARCH_LABEL}-${FLAVOR}"
+done
 echo ""
 echo "Re-source your shell or open a new terminal to pick up the updated PATH."

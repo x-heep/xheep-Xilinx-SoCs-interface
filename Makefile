@@ -8,7 +8,7 @@ LINKER    ?= on_chip
 BOARD     ?= pynq-z2
 APP       ?= hello_world
 OVERLAY   ?= xilinx_core_v_mini_mcu_wrapper.bit
-EXTENSION ?= base
+FLAVOR    ?= base
 
 # Derived path to firmware (used by 'make run')
 TARGET  := sw/build/$(APP)/$(APP).elf
@@ -21,14 +21,14 @@ help:
 
 ## @section Setup & Installation
 
-## Install dependencies and the selected toolchain flavor
+## Install dependencies and the selected toolchain flavor(s)
 ## Requires sudo privileges to manage system packages and ConfigFS
-## @param EXTENSION=base      Toolchain flavor to install: base, float, zfinx
+## @param FLAVOR=base         Toolchain flavor(s) to install: base, float, zfinx, all
 install:
 	@sudo -v || (echo "sudo is required. Run 'sudo -v' to cache credentials and retry." && exit 1)
 	@sudo bash util/install_apt.sh
 	@sudo bash util/install_git.sh
-	@bash util/install_riscv_toolchain.sh $(EXTENSION)
+	@bash util/install_riscv_toolchain.sh $(FLAVOR)
 	@sudo bash -c "grep -qxF 'source /etc/profile.d/pynq_venv.sh' /root/.bashrc || echo 'source /etc/profile.d/pynq_venv.sh' >> /root/.bashrc"
 	@sudo bash -c "grep -qxF 'cd /home/xilinx' /root/.bashrc || echo 'cd /home/xilinx' >> /root/.bashrc"
 
@@ -74,9 +74,9 @@ run:
 ## @param APP=hello_world     Application folder under sw/applications/
 ## @param LINKER=on_chip      Linker mode: on_chip, flash_load, flash_exec
 ## @param BOARD=pynq-z2       Target board: pynq-z2, aup-zu3
-## @param EXTENSION=base      Toolchain flavor: base (rv32imc), float (rv32imfc), zfinx (rv32imc_zfinx)
+## @param FLAVOR=base         Toolchain flavor: base (rv32imc), float (rv32imfc), zfinx (rv32imc_zfinx)
 app:
-	@$(MAKE) -C sw APP=$(APP) LINKER=$(LINKER) TARGET=$(BOARD) EXTENSION=$(EXTENSION)
+	@$(MAKE) -C sw APP=$(APP) LINKER=$(LINKER) TARGET=$(BOARD) FLAVOR=$(FLAVOR)
 
 ## Clean application build artefacts
 app-clean:

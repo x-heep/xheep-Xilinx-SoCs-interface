@@ -36,12 +36,13 @@ The installation process is fully automated through a single command.
 This script installs system dependencies, builds OpenOCD with specific patches, and configures the Python environment.
 
 ```bash
-make install                   # Install the default toolchain flavor (base — rv32imc, no FPU)
-make install EXTENSION=float   # Install the hardware FPU flavor (rv32imfc)
-make install EXTENSION=zfinx   # Install the Zfinx flavor (rv32imc_zfinx)
+make install                  # Install the default toolchain flavor (base — rv32imc, no FPU)
+make install FLAVOR=float     # Install the hardware FPU flavor (rv32imfc)
+make install FLAVOR=zfinx     # Install the Zfinx flavor (rv32imc_zfinx)
+make install FLAVOR=all       # Install all three flavors at once
 ```
 
-Only the selected flavor is downloaded and installed. Run the command again with a different `EXTENSION` to add further flavors.
+Only the selected flavor is downloaded and installed. Use `FLAVOR=all` to install all three in one shot.
 
 > Note: This requires `sudo` privileges to manage system packages, install OpenOCD, and manipulate the kernel's ConfigFS.
 
@@ -83,17 +84,17 @@ This copies all necessary files (notebook, drivers, config, DTS templates) to `~
 ### RISC-V CoreV Toolchain
 `make install` automatically downloads and installs the **CoreV RISC-V toolchain** from the
 [riscv-Xilinx-SoCs-toolchain](https://github.com/Christian-Conti/riscv-Xilinx-SoCs-toolchain)
-GitHub releases. Only the flavor selected by `EXTENSION` is installed under `/opt/`:
+GitHub releases. Only the flavor selected by `FLAVOR` is installed under `/opt/`:
 
-| `EXTENSION` | Symlink | `-march` | `-mabi` | Use case |
+| `FLAVOR` | Symlink | `-march` | `-mabi` | Use case |
 |---|---|---|---|---|
 | `base` (default) | `/opt/openhw-riscv-base` | `rv32imc` | `ilp32` | No FPU |
 | `float` | `/opt/openhw-riscv-float` | `rv32imfc` | `ilp32f` | Hardware FPU |
 | `zfinx` | `/opt/openhw-riscv-zfinx` | `rv32imc_zfinx` | `ilp32` | Zfinx (float in integer regs) |
 
-Run `make install EXTENSION=<flavor>` for each flavor you need. If multiple flavors are installed, `jdupes` automatically deduplicates shared files using hardlinks to minimize disk usage.
+Use `make install FLAVOR=<flavor>` to install a single flavor, or `make install FLAVOR=all` to install all three at once. If multiple flavors are present, `jdupes` automatically deduplicates shared files using hardlinks to minimize disk usage.
 
-The active flavor is selected at build time via the `EXTENSION` variable (see [Building Applications](#building-applications)).
+The active flavor is selected at build time via the same `FLAVOR` variable (see [Building Applications](#building-applications)).
 
 ### Python Packages
 - `pynq` — FPGA bitstream management and MMIO access
@@ -169,17 +170,18 @@ The `xheepGPIO` class manages the following control signals via the `axi_gpio` I
 ### Makefile
 
 ```bash
-make install                        # Install dependencies + base toolchain flavor (rv32imc)
-make install EXTENSION=float        # Install dependencies + float toolchain flavor (rv32imfc)
-make install EXTENSION=zfinx        # Install dependencies + zfinx toolchain flavor
-make uninstall                      # Remove all installed toolchain flavors and clean PATH entries (requires sudo)
+make install                  # Install dependencies + base toolchain flavor (rv32imc)
+make install FLAVOR=float     # Install dependencies + float toolchain flavor (rv32imfc)
+make install FLAVOR=zfinx     # Install dependencies + zfinx toolchain flavor
+make install FLAVOR=all       # Install dependencies + all three toolchain flavors
+make uninstall                # Remove all installed toolchain flavors and clean PATH entries (requires sudo)
 make install-notebook      # Install Jupyter notebook interface to ~/jupyter_notebooks/xheep
 make uninstall-notebook    # Remove the Jupyter notebook interface
 make app                   # Compile hello_world (rv32imc, no FPU)
 make app APP=my_app        # Compile a custom application
 make app APP=my_app LINKER=flash_load            # Compile for flash boot
-make app APP=my_app EXTENSION=float              # Compile with hardware FPU (rv32imfc)
-make app APP=my_app EXTENSION=zfinx              # Compile with Zfinx (rv32imc_zfinx)
+make app APP=my_app FLAVOR=float                 # Compile with hardware FPU (rv32imfc)
+make app APP=my_app FLAVOR=zfinx                 # Compile with Zfinx (rv32imc_zfinx)
 make run                   # Run with default parameters
 make run LINKER=flash_load OVERLAY=xilinx_core_v_mini_mcu_wrapper.bit
 make help                  # Show all available targets and parameters
@@ -187,14 +189,14 @@ make help                  # Show all available targets and parameters
 
 **Makefile parameters:**
 
-| Variable    | Default                                   | Description                                          |
-| ----------- | ----------------------------------------- | ---------------------------------------------------- |
-| `OVERLAY`   | `xilinx_core_v_mini_mcu_wrapper.bit`      | Path to the FPGA bitstream                           |
-| `LINKER`    | `on_chip`                                 | Execution mode: `on_chip`, `flash_load`, `flash_exec`|
-| `USER`      | `xilinx`                                  | Username for notebook installation path              |
-| `APP`       | `hello_world`                             | Application name (folder under `sw/applications/`)  |
-| `BOARD`     | `pynq-z2`                                 | Target board: `pynq-z2`, `aup-zu3`                  |
-| `EXTENSION` | `base`                                    | Toolchain flavor: `base`, `float`, `zfinx`           |
+| Variable    | Default                                   | Description                                                      |
+| ----------- | ----------------------------------------- | ---------------------------------------------------------------- |
+| `OVERLAY`   | `xilinx_core_v_mini_mcu_wrapper.bit`      | Path to the FPGA bitstream                                       |
+| `LINKER`    | `on_chip`                                 | Execution mode: `on_chip`, `flash_load`, `flash_exec`            |
+| `USER`      | `xilinx`                                  | Username for notebook installation path                          |
+| `APP`       | `hello_world`                             | Application name (folder under `sw/applications/`)               |
+| `BOARD`     | `pynq-z2`                                 | Target board: `pynq-z2`, `aup-zu3`                               |
+| `FLAVOR`    | `base`                                    | Toolchain flavor: `base`, `float`, `zfinx` (or `all` for `make install`) |
 
 ### Building Applications
 
@@ -213,10 +215,10 @@ make app APP=my_app
 make app APP=my_app LINKER=flash_load
 
 # Build with hardware FPU support (requires xheep-float toolchain)
-make app APP=my_app EXTENSION=float
+make app APP=my_app FLAVOR=float
 
 # Build with Zfinx (float in integer registers)
-make app APP=my_app EXTENSION=zfinx
+make app APP=my_app FLAVOR=zfinx
 
 # Run immediately after build
 make app APP=my_app && make run LINKER=on_chip
@@ -244,9 +246,9 @@ Pass `BOARD=<value>` to `make app` to select a different board (default: `pynq-z
 #### Toolchain
 
 The `sw/Makefile` uses `riscv32-corev-elf-gcc` from the CoreV toolchain installed by `make install`.
-The active toolchain is selected by the `EXTENSION` flag, which automatically sets `-march`, `-mabi`, and `RISCV` path:
+The active toolchain is selected by the `FLAVOR` flag, which automatically sets `-march`, `-mabi`, and `RISCV` path:
 
-| `EXTENSION` | Toolchain path | `-march` | `-mabi` |
+| `FLAVOR` | Toolchain path | `-march` | `-mabi` |
 |---|---|---|---|
 | `base` (default) | `/opt/openhw-riscv-base` | `rv32imc` | `ilp32` |
 | `float` | `/opt/openhw-riscv-float` | `rv32imfc` | `ilp32f` |

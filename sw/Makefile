@@ -1,12 +1,12 @@
 # Toolchain flavor — selects compiler prefix, march and mabi automatically.
 # Allowed values: base (default), float, zfinx
-EXTENSION ?= base
+FLAVOR ?= base
 
-ifeq ($(EXTENSION),float)
+ifeq ($(FLAVOR),float)
   RISCV ?= /opt/openhw-riscv-float
   ARCH  ?= rv32imfc
   ABI   ?= ilp32f
-else ifeq ($(EXTENSION),zfinx)
+else ifeq ($(FLAVOR),zfinx)
   RISCV ?= /opt/openhw-riscv-zfinx
   ARCH  ?= rv32imc_zfinx
   ABI   ?= ilp32

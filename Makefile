@@ -71,11 +71,13 @@ run:
 
 ## Compile a RISC-V application using the installed CoreV RISC-V toolchain
 ## Produces sw/build/APP/APP.{elf,bin}
+## Always removes any previous build of the same APP before recompiling.
 ## @param APP=hello_world     Application folder under sw/applications/
 ## @param LINKER=on_chip      Linker mode: on_chip, flash_load, flash_exec
 ## @param BOARD=pynq-z2       Target board: pynq-z2, aup-zu3
 ## @param FLAVOR=base         Toolchain flavor: base (rv32imc), float (rv32imfc), zfinx (rv32imc_zfinx)
 app:
+	@rm -rf sw/build/$(APP)
 	@$(MAKE) -C sw APP=$(APP) LINKER=$(LINKER) TARGET=$(BOARD) FLAVOR=$(FLAVOR)
 
 ## Clean application build artefacts

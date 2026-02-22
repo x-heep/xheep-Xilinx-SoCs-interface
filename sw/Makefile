@@ -62,13 +62,16 @@ CFLAGS = \
     -ffunction-sections -fdata-sections \
     -DHOST_BUILD $(LINKER_DEF) -DINTERNAL_CRTO
 
+# nano.specs links against the reduced-footprint newlib (libc_nano), which has
+# significantly smaller BSS than the standard newlib used by nosys.specs.
+# This keeps data sections within the ram1 budget.
 LDFLAGS = \
     -T $(LINKER_SCRIPT) \
     -static \
     -Wl,-Map=$(BUILD_DIR)/$(APP).map \
     -Wl,--gc-sections \
     -ffunction-sections -fdata-sections \
-    -specs=nosys.specs
+    -specs=nano.specs
 
 LDLIBS = -lc -lgcc
 
@@ -81,6 +84,24 @@ INCLUDES = \
     -I$(XHEEP_SW)/device/lib/drivers/uart \
     -I$(XHEEP_SW)/device/lib/drivers/fast_intr_ctrl \
     -Iapplications/$(APP)
+
+# Extra sources and includes needed only for flash_load (SPI flash boot):
+# crt0.S calls w25q128jw_init_crt0 and w25q128jw_read_standard, which live
+# in the SPI host driver and W25Q BSP.
+ifeq ($(LINKER),flash_load)
+FLASH_SRCS = \
+    $(XHEEP_SW)/device/lib/drivers/spi_host/spi_host.c \
+    $(XHEEP_SW)/device/bsp/w25q/w25q.c
+
+FLASH_INCLUDES = \
+    -I$(XHEEP_SW)/device/lib/drivers/spi_host \
+    -I$(XHEEP_SW)/device/lib/drivers/rv_plic \
+    -I$(XHEEP_SW)/device/lib/drivers/dma \
+    -I$(XHEEP_SW)/device/bsp/w25q
+else
+FLASH_SRCS    =
+FLASH_INCLUDES =
+endif
 
 CRT_SRCS = \
     $(XHEEP_SW)/device/lib/crt/crt0.S \
@@ -101,7 +122,7 @@ DRIVER_SRCS = \
 
 APP_SRCS = applications/$(APP)/main.c
 
-ALL_SRCS = $(CRT_SRCS) $(RUNTIME_SRCS) $(DRIVER_SRCS) $(APP_SRCS)
+ALL_SRCS = $(CRT_SRCS) $(RUNTIME_SRCS) $(DRIVER_SRCS) $(FLASH_SRCS) $(APP_SRCS)
 
 .PHONY: all clean
 
@@ -112,7 +133,7 @@ all: $(BUILD_DIR)/$(APP).bin
 
 $(BUILD_DIR)/$(APP).elf: $(ALL_SRCS) $(LINKER_SCRIPT)
 	@mkdir -p $(BUILD_DIR)
-	$(RISCV_GCC) $(CFLAGS) $(INCLUDES) $(LDFLAGS) -o $@ $(ALL_SRCS) $(LDLIBS)
+	$(RISCV_GCC) $(CFLAGS) $(INCLUDES) $(FLASH_INCLUDES) $(LDFLAGS) -o $@ $(ALL_SRCS) $(LDLIBS)
 
 $(BUILD_DIR)/$(APP).bin: $(BUILD_DIR)/$(APP).elf
 	$(RISCV_OBJCOPY) -O binary $< $@

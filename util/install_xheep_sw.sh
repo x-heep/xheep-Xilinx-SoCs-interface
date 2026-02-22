@@ -3,10 +3,16 @@ set -euo pipefail
 
 # Sync sw/device/ from the official x-heep repository.
 #
-# This keeps the device library (drivers, BSP, CRT, runtime headers) aligned
-# with the upstream x-heep project.  Only sw/device/ is touched; the custom
-# sw/Makefile, sw/linker/, sw/applications/, and the FPGA-specific
-# sw/device/lib/runtime/syscalls.c are left untouched.
+# This keeps the device library (drivers, BSP, runtime headers) aligned with
+# the upstream x-heep project.  The sync is ADDITIVE: files from x-heep are
+# added or updated, but files that exist in this repo but not in x-heep are
+# left untouched.  This is intentional because several files (crt0.S,
+# vectors.S, core_v_mini_mcu.h, ...) are generated from templates and are
+# committed here for PYNQ-Z2 but are NOT committed in the upstream repo.
+#
+# Only sw/device/ is touched; the custom sw/Makefile, sw/linker/,
+# sw/applications/, and the FPGA-specific sw/device/lib/runtime/syscalls.c
+# are left untouched.
 #
 # Usage: install_xheep_sw.sh [XHEEP_REPO_URL]
 #   Default URL: https://github.com/x-heep/x-heep
@@ -34,10 +40,12 @@ cd "$TMP/x-heep"
 git sparse-checkout set sw/device
 
 echo "Syncing sw/device/ from x-heep..."
-# rsync: update destination, remove files no longer in source.
-# --exclude the pynq-z2 target so we never overwrite the board-specific x-heep.h
-# (it is already identical, but this is a safety net for future divergence).
-rsync -a --delete \
+# No --delete: files not present in x-heep (generated files like crt0.S,
+# vectors.S, core_v_mini_mcu.h that are committed here but not upstream)
+# must be preserved.
+# --exclude the pynq-z2 target so we never overwrite the board-specific
+# x-heep.h (safety net for future divergence).
+rsync -a \
     --exclude='target/pynq-z2/' \
     "$TMP/x-heep/sw/device/" \
     "$DEVICE_DIR/"

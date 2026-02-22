@@ -227,7 +227,7 @@ def main() -> int:
                 v, e = xheep.gpio.getExitCode()
         except KeyboardInterrupt:
             v, e = xheep.gpio.getExitCode()
-            print(f"exit_valid={v} | exit_value={e}")
+            print(f"\nexit_valid={v} | exit_value={e}")
             return 130
 
         if not v:
@@ -278,8 +278,7 @@ def main() -> int:
 
     except KeyboardInterrupt:
         v, e = xheep.gpio.getExitCode()
-        log("warning", f"Interrupted: valid={v}, value={e}")
-        print(f"exit_valid={v} | exit_value={e}")
+        print(f"\nexit_valid={v} | exit_value={e}")
         return 130
 
     finally:

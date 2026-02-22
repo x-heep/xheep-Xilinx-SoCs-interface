@@ -47,7 +47,7 @@ for FLAVOR in "${FLAVORS[@]}"; do
   echo ""
   echo "==> Flavor: ${FLAVOR}"
 
-  EXISTING_GCC=$(find "${INSTALL_DIR}/bin" -maxdepth 1 -type f -name "*-gcc" 2>/dev/null | head -n 1)
+  EXISTING_GCC=$(find "${INSTALL_DIR}/bin" -maxdepth 1 -type f -name "*-gcc" 2>/dev/null | head -n 1) || true
   if [ -n "$EXISTING_GCC" ] && [ -x "$EXISTING_GCC" ]; then
     echo "    Already installed at ${INSTALL_DIR} ($(basename "$EXISTING_GCC")) — skipping."
     # Ensure the symlink is still correct even on re-runs
@@ -80,7 +80,7 @@ for a in data.get('assets', []):
   echo "    Extracting to ${INSTALL_DIR}..."
   sudo tar -xzf "${TMP}/${ASSET_NAME}" -C "${INSTALL_BASE}"
 
-  TOOL_BIN=$(find "${INSTALL_DIR}/bin" -maxdepth 1 -type f -name "*-gcc" 2>/dev/null | head -n 1)
+  TOOL_BIN=$(find "${INSTALL_DIR}/bin" -maxdepth 1 -type f -name "*-gcc" 2>/dev/null | head -n 1) || true
   if [ -z "$TOOL_BIN" ] || [ ! -x "$TOOL_BIN" ]; then
     echo "    Error: no *-gcc binary found in ${INSTALL_DIR}/bin/ after extraction." >&2
     echo "    Check the archive structure (expected top-level: ${EXTRACTED_DIR}/)." >&2

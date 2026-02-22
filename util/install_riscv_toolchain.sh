@@ -41,15 +41,15 @@ RELEASE_JSON=$(curl -fsSL "$LATEST_API")
 for FLAVOR in "${FLAVORS[@]}"; do
   EXTRACTED_DIR="riscv-${ARCH_LABEL}-${FLAVOR}"
   INSTALL_DIR="${INSTALL_BASE}/${EXTRACTED_DIR}"
-  TOOL_BIN="${INSTALL_DIR}/bin/riscv32-corev-elf-gcc"
   ASSET_PREFIX="riscv-toolchain-${ARCH_LABEL}-${FLAVOR}-"
   SYMLINK="${FLAVOR_SYMLINK[$FLAVOR]}"
 
   echo ""
   echo "==> Flavor: ${FLAVOR}"
 
-  if [ -x "$TOOL_BIN" ]; then
-    echo "    Already installed at ${INSTALL_DIR} — skipping."
+  EXISTING_GCC=$(find "${INSTALL_DIR}/bin" -maxdepth 1 -type f -name "*-gcc" 2>/dev/null | head -n 1)
+  if [ -n "$EXISTING_GCC" ] && [ -x "$EXISTING_GCC" ]; then
+    echo "    Already installed at ${INSTALL_DIR} ($(basename "$EXISTING_GCC")) — skipping."
     # Ensure the symlink is still correct even on re-runs
     sudo ln -sfn "${INSTALL_DIR}" "${SYMLINK}"
     continue
@@ -80,11 +80,13 @@ for a in data.get('assets', []):
   echo "    Extracting to ${INSTALL_DIR}..."
   sudo tar -xzf "${TMP}/${ASSET_NAME}" -C "${INSTALL_BASE}"
 
-  if [ ! -x "$TOOL_BIN" ]; then
-    echo "    Error: ${TOOL_BIN} not found after extraction." >&2
+  TOOL_BIN=$(find "${INSTALL_DIR}/bin" -maxdepth 1 -type f -name "*-gcc" 2>/dev/null | head -n 1)
+  if [ -z "$TOOL_BIN" ] || [ ! -x "$TOOL_BIN" ]; then
+    echo "    Error: no *-gcc binary found in ${INSTALL_DIR}/bin/ after extraction." >&2
     echo "    Check the archive structure (expected top-level: ${EXTRACTED_DIR}/)." >&2
     exit 1
   fi
+  echo "    Found compiler: $(basename "$TOOL_BIN")"
 
   echo "    Creating symlink ${SYMLINK} -> ${INSTALL_DIR}"
   sudo ln -sfn "${INSTALL_DIR}" "${SYMLINK}"

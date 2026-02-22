@@ -1,4 +1,4 @@
-# x-heep Xilinx Interface
+# x-heep Xilinx SoCs Interface
 
 This repository provides the software interface and drivers to integrate the [x-heep](https://github.com/x-heep/x-heep) RISC-V core with the Processing System (PS) of Xilinx SoCs.
 This framework enables remote connectivity to the boards via SSH to deploy, test, and debug x-heep without physical access to the JTAG or UART headers.

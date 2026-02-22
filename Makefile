@@ -21,13 +21,14 @@ help:
 
 ## @section Setup & Installation
 
-## Install all dependencies and configure the environment
+## Install dependencies and the selected toolchain flavor
 ## Requires sudo privileges to manage system packages and ConfigFS
+## @param EXTENSION=base      Toolchain flavor to install: base, float, zfinx
 install:
 	@sudo -v || (echo "sudo is required. Run 'sudo -v' to cache credentials and retry." && exit 1)
 	@sudo bash util/install_apt.sh
 	@sudo bash util/install_git.sh
-	@bash util/install_riscv_toolchain.sh
+	@bash util/install_riscv_toolchain.sh $(EXTENSION)
 	@sudo bash -c "grep -qxF 'source /etc/profile.d/pynq_venv.sh' /root/.bashrc || echo 'source /etc/profile.d/pynq_venv.sh' >> /root/.bashrc"
 	@sudo bash -c "grep -qxF 'cd /home/xilinx' /root/.bashrc || echo 'cd /home/xilinx' >> /root/.bashrc"
 

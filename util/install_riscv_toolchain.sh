@@ -1,14 +1,16 @@
 #!/bin/bash
 set -euo pipefail
 
-# Download and install the CoreV RISC-V toolchain for X-HEEP (all xheep flavors)
+# Download and install a CoreV RISC-V toolchain flavor for X-HEEP
 # from the riscv-Xilinx-SoCs-toolchain GitHub release.
-# Skips individual flavors that are already installed.
+# Skips the flavor if it is already installed.
 #
-# Installed flavors and their symlinks under /opt:
-#   xheep-base   → /opt/openhw-riscv-base   (rv32imc  / ilp32,  no FPU)
-#   xheep-float  → /opt/openhw-riscv-float  (rv32imfc / ilp32f, hardware FPU)
-#   xheep-zfinx  → /opt/openhw-riscv-zfinx  (rv32imc  / ilp32,  Zfinx)
+# Usage: install_riscv_toolchain.sh [base|float|zfinx]   (default: base)
+#
+# Available flavors and their symlinks under /opt:
+#   base   (xheep-base)   → /opt/openhw-riscv-base   (rv32imc  / ilp32,  no FPU)
+#   float  (xheep-float)  → /opt/openhw-riscv-float  (rv32imfc / ilp32f, hardware FPU)
+#   zfinx  (xheep-zfinx)  → /opt/openhw-riscv-zfinx  (rv32imc  / ilp32,  Zfinx)
 
 TOOLCHAIN_REPO="Christian-Conti/riscv-Xilinx-SoCs-toolchain"
 INSTALL_BASE="/opt"
@@ -18,7 +20,17 @@ declare -A FLAVOR_SYMLINK=(
   [xheep-float]="/opt/openhw-riscv-float"
   [xheep-zfinx]="/opt/openhw-riscv-zfinx"
 )
-FLAVORS=(xheep-base xheep-float xheep-zfinx)
+
+# Select flavor from first argument (base | float | zfinx), default: base
+EXTENSION="${1:-base}"
+case "$EXTENSION" in
+  base|float|zfinx) ;;
+  *)
+    echo "Unknown extension '${EXTENSION}'. Valid values: base, float, zfinx" >&2
+    exit 1
+    ;;
+esac
+FLAVORS=("xheep-${EXTENSION}")
 
 # Detect host architecture
 MACHINE=$(uname -m)
@@ -135,9 +147,7 @@ else
 fi
 
 echo ""
-echo "All xheep toolchain flavors installed:"
-echo "  /opt/openhw-riscv-base  — rv32imc  / ilp32  (no FPU)"
-echo "  /opt/openhw-riscv-float — rv32imfc / ilp32f (hardware FPU)"
-echo "  /opt/openhw-riscv-zfinx — rv32imc  / ilp32  (Zfinx)"
+echo "xheep toolchain flavor '${EXTENSION}' installed:"
+echo "  ${FLAVOR_SYMLINK[xheep-${EXTENSION}]}  →  ${INSTALL_BASE}/riscv-${ARCH_LABEL}-xheep-${EXTENSION}"
 echo ""
 echo "Re-source your shell or open a new terminal to pick up the updated PATH."

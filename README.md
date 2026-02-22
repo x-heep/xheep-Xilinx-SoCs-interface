@@ -36,8 +36,12 @@ The installation process is fully automated through a single command.
 This script installs system dependencies, builds OpenOCD with specific patches, and configures the Python environment.
 
 ```bash
-sudo make install
+make install                   # Install the default toolchain flavor (base — rv32imc, no FPU)
+make install EXTENSION=float   # Install the hardware FPU flavor (rv32imfc)
+make install EXTENSION=zfinx   # Install the Zfinx flavor (rv32imc_zfinx)
 ```
+
+Only the selected flavor is downloaded and installed. Run the command again with a different `EXTENSION` to add further flavors.
 
 > Note: This requires `sudo` privileges to manage system packages, install OpenOCD, and manipulate the kernel's ConfigFS.
 
@@ -74,17 +78,20 @@ This copies all necessary files (notebook, drivers, config, DTS templates) to `~
 ### System Packages
 - `device-tree-compiler` — compiles `.dts` templates into `.dtbo` binaries
 - `picocom` — serial terminal for UART monitoring
+- `jdupes` — hardlink deduplication across toolchain flavors to reduce disk usage
 
 ### RISC-V CoreV Toolchain
 `make install` automatically downloads and installs the **CoreV RISC-V toolchain** from the
 [riscv-Xilinx-SoCs-toolchain](https://github.com/Christian-Conti/riscv-Xilinx-SoCs-toolchain)
-GitHub releases. All three flavors are installed under `/opt/`:
+GitHub releases. Only the flavor selected by `EXTENSION` is installed under `/opt/`:
 
-| Symlink | Flavor | `-march` | `-mabi` | Use case |
+| `EXTENSION` | Symlink | `-march` | `-mabi` | Use case |
 |---|---|---|---|---|
-| `/opt/openhw-riscv-base` | `xheep-base` | `rv32imc` | `ilp32` | Default — no FPU |
-| `/opt/openhw-riscv-float` | `xheep-float` | `rv32imfc` | `ilp32f` | Hardware FPU |
-| `/opt/openhw-riscv-zfinx` | `xheep-zfinx` | `rv32imc_zfinx` | `ilp32` | Zfinx (float in integer regs) |
+| `base` (default) | `/opt/openhw-riscv-base` | `rv32imc` | `ilp32` | No FPU |
+| `float` | `/opt/openhw-riscv-float` | `rv32imfc` | `ilp32f` | Hardware FPU |
+| `zfinx` | `/opt/openhw-riscv-zfinx` | `rv32imc_zfinx` | `ilp32` | Zfinx (float in integer regs) |
+
+Run `make install EXTENSION=<flavor>` for each flavor you need. If multiple flavors are installed, `jdupes` automatically deduplicates shared files using hardlinks to minimize disk usage.
 
 The active flavor is selected at build time via the `EXTENSION` variable (see [Building Applications](#building-applications)).
 
@@ -162,8 +169,10 @@ The `xheepGPIO` class manages the following control signals via the `axi_gpio` I
 ### Makefile
 
 ```bash
-make install               # Install all system dependencies and build OpenOCD (requires sudo)
-make uninstall             # Remove the CoreV toolchain and clean PATH entries (requires sudo)
+make install                        # Install dependencies + base toolchain flavor (rv32imc)
+make install EXTENSION=float        # Install dependencies + float toolchain flavor (rv32imfc)
+make install EXTENSION=zfinx        # Install dependencies + zfinx toolchain flavor
+make uninstall                      # Remove all installed toolchain flavors and clean PATH entries (requires sudo)
 make install-notebook      # Install Jupyter notebook interface to ~/jupyter_notebooks/xheep
 make uninstall-notebook    # Remove the Jupyter notebook interface
 make app                   # Compile hello_world (rv32imc, no FPU)

@@ -201,7 +201,7 @@ make help                  # Show all available targets and parameters
 ### Building Applications
 
 Applications live under `sw/applications/<app_name>/main.c`.
-The build system uses `riscv32-corev-elf-gcc` (CoreV toolchain) to compile for the CV32E40P core and produces both a `.elf` and a flat `.bin` image in `sw/build/<app_name>/`.
+The build system uses `riscv32-unknown-elf-gcc` (CoreV toolchain) to compile for the CV32E40P core and produces both a `.elf` and a flat `.bin` image in `sw/build/<app_name>/`.
 
 ```bash
 # Build hello_world (on-chip execution, PYNQ-Z2 clock/UART settings, no FPU)
@@ -245,7 +245,7 @@ Pass `BOARD=<value>` to `make app` to select a different board (default: `pynq-z
 
 #### Toolchain
 
-The `sw/Makefile` uses `riscv32-corev-elf-gcc` from the CoreV toolchain installed by `make install`.
+The `sw/Makefile` uses `riscv32-unknown-elf-gcc` from the CoreV toolchain installed by `make install`.
 The active toolchain is selected by the `FLAVOR` flag, which automatically sets `-march`, `-mabi`, and `RISCV` path:
 
 | `FLAVOR` | Toolchain path | `-march` | `-mabi` |

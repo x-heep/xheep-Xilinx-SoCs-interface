@@ -3,21 +3,25 @@
 FLAVOR ?= base
 
 ifeq ($(FLAVOR),float)
-  RISCV ?= /opt/openhw-riscv-float
-  ARCH  ?= rv32imfc
-  ABI   ?= ilp32f
+  _RISCV_DIR = /opt/openhw-riscv-float
+  _ARCH      = rv32imfc
+  _ABI       = ilp32f
 else ifeq ($(FLAVOR),zfinx)
-  RISCV ?= /opt/openhw-riscv-zfinx
-  ARCH  ?= rv32imc_zfinx
-  ABI   ?= ilp32
+  _RISCV_DIR = /opt/openhw-riscv-zfinx
+  _ARCH      = rv32imc_zfinx
+  _ABI       = ilp32
 else
-  RISCV ?= /opt/openhw-riscv-base
-  ARCH  ?= rv32imc
-  ABI   ?= ilp32
+  _RISCV_DIR = /opt/openhw-riscv-base
+  _ARCH      = rv32imc
+  _ABI       = ilp32
 endif
 
-RISCV_GCC     ?= $(RISCV)/bin/riscv32-corev-elf-gcc
-RISCV_OBJCOPY ?= $(RISCV)/bin/riscv32-corev-elf-objcopy
+RISCV     ?= $(_RISCV_DIR)
+ARCH      ?= $(_ARCH)
+ABI       ?= $(_ABI)
+
+RISCV_GCC     := $(RISCV)/bin/riscv32-unknown-elf-gcc
+RISCV_OBJCOPY := $(RISCV)/bin/riscv32-unknown-elf-objcopy
 
 XHEEP_SW ?= $(CURDIR)
 

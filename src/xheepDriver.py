@@ -685,7 +685,14 @@ class xheepFlashProgrammer:
         # Recreate MMIO object to ensure fresh hardware access (no stale cache)
         self.spi = MMIO(self.spi_addr, 0x100)
         time.sleep(0.05)
-        
+
+        # Initialize SPI controller: after a fresh bitstream load the SPICR
+        # reset value is 0x180 (Manual_SS + MTI, SPE=0, Master=0).
+        # Without this call no transaction would succeed and we'd hit the
+        # timeout in _wait_tx_empty → _spi_init recovery loop (which is why
+        # the second run worked but the first didn't).
+        self._spi_init()
+
         # Do NOT send wake_up (0xAB) here. The AXI Quad SPI IP is in
         # enhanced mode with a command lookup table - 0xAB is not recognized and
         # triggers Command_Error (SPISR bit 10), corrupting subsequent transfers.

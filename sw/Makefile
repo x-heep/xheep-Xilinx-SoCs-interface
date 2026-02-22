@@ -4,15 +4,15 @@ FLAVOR ?= base
 
 ifeq ($(FLAVOR),float)
   _RISCV_DIR = /opt/openhw-riscv-float
-  _ARCH      = rv32imfc
+  _ARCH      = rv32imfc_zicsr_zifencei
   _ABI       = ilp32f
 else ifeq ($(FLAVOR),zfinx)
   _RISCV_DIR = /opt/openhw-riscv-zfinx
-  _ARCH      = rv32imc_zfinx
+  _ARCH      = rv32imc_zicsr_zifencei_zfinx
   _ABI       = ilp32
 else
   _RISCV_DIR = /opt/openhw-riscv-base
-  _ARCH      = rv32imc
+  _ARCH      = rv32imc_zicsr_zifencei
   _ABI       = ilp32
 endif
 

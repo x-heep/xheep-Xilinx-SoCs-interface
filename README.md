@@ -250,9 +250,9 @@ The active toolchain is selected by the `FLAVOR` flag, which automatically sets 
 
 | `FLAVOR` | Toolchain path | `-march` | `-mabi` |
 |---|---|---|---|
-| `base` (default) | `/opt/openhw-riscv-base` | `rv32imc` | `ilp32` |
-| `float` | `/opt/openhw-riscv-float` | `rv32imfc` | `ilp32f` |
-| `zfinx` | `/opt/openhw-riscv-zfinx` | `rv32imc_zfinx` | `ilp32` |
+| `base` (default) | `/opt/openhw-riscv-base` | `rv32imc_zicsr_zifencei` | `ilp32` |
+| `float` | `/opt/openhw-riscv-float` | `rv32imfc_zicsr_zifencei` | `ilp32f` |
+| `zfinx` | `/opt/openhw-riscv-zfinx` | `rv32imc_zicsr_zifencei_zfinx` | `ilp32` |
 
 The x-heep device library (startup code, runtime, UART/SoC drivers) is **bundled directly in `sw/device/`**, so no external x-heep clone is required on the board.
 

@@ -80,18 +80,20 @@ for a in data.get('assets', []):
   echo "    Extracting to ${INSTALL_DIR}..."
   sudo tar -xzf "${TMP}/${ASSET_NAME}" -C "${INSTALL_BASE}"
 
-  # Riduzione toolchain: rimuovi file inutili e strip binari
-  echo "    Riduzione dimensioni toolchain..."
   sudo rm -rf "${INSTALL_DIR}/share" "${INSTALL_DIR}/doc" "${INSTALL_DIR}/man" 2>/dev/null || true
   if [ -d "${INSTALL_DIR}/bin" ]; then
-    for exe in $(find "${INSTALL_DIR}/bin" -type f -executable); do
-      sudo strip --strip-all "$exe" 2>/dev/null || true
-    done
+    find "${INSTALL_DIR}/bin" -type f -executable \
+      | xargs -r sudo strip --strip-all 2>/dev/null || true
+  fi
+  if [ -d "${INSTALL_DIR}/libexec" ]; then
+    find "${INSTALL_DIR}/libexec" -type f -executable \
+      | xargs -r sudo strip --strip-all 2>/dev/null || true
   fi
   if [ -d "${INSTALL_DIR}/lib" ]; then
-    for so in $(find "${INSTALL_DIR}/lib" -type f -name '*.so*'); do
-      sudo strip --strip-all "$so" 2>/dev/null || true
-    done
+    find "${INSTALL_DIR}/lib" -type f -name '*.so*' \
+      | xargs -r sudo strip --strip-all 2>/dev/null || true
+    find "${INSTALL_DIR}/lib" -type f -name '*.a' \
+      | xargs -r sudo strip --strip-debug 2>/dev/null || true
   fi
 
   TOOL_BIN=$(find "${INSTALL_DIR}/bin" -maxdepth 1 -type f -name "*-gcc" 2>/dev/null | head -n 1) || true
@@ -115,6 +117,22 @@ for a in data.get('assets', []):
 
   echo "    Done: ${INSTALL_DIR}"
 done
+
+echo ""
+echo "Deduplicating toolchain files with hardlinks..."
+if command -v jdupes &>/dev/null; then
+  TOOL_DIRS=()
+  for FLAVOR in "${FLAVORS[@]}"; do
+    D="${INSTALL_BASE}/riscv-${ARCH_LABEL}-${FLAVOR}"
+    [ -d "$D" ] && TOOL_DIRS+=("$D")
+  done
+  if [ ${#TOOL_DIRS[@]} -gt 1 ]; then
+    sudo jdupes -rH "${TOOL_DIRS[@]}"
+    echo "Hardlink deduplication complete."
+  fi
+else
+  echo "  (jdupes not found — skipping hardlink deduplication; install with: sudo apt-get install jdupes)"
+fi
 
 echo ""
 echo "All xheep toolchain flavors installed:"

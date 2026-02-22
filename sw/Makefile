@@ -57,7 +57,7 @@ CFLAGS = \
     -O2 -g -w \
     -nostartfiles \
     -ffunction-sections -fdata-sections \
-    -DHOST_BUILD $(LINKER_DEF) -DINTERNAL_CRTO
+    $(LINKER_DEF) -DINTERNAL_CRTO
 
 # nano.specs links against the reduced-footprint newlib (libc_nano), which has
 # significantly smaller BSS than the standard newlib used by nosys.specs.

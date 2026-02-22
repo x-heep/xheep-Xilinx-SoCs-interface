@@ -1,6 +1,7 @@
 import argparse
 import hashlib
 import os
+import signal
 import socket
 import struct
 import subprocess
@@ -98,7 +99,7 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("-o", "--overlay", required=True, help="Path to .bit")
     ap.add_argument("-f", "--firmware", required=True, help="Path to .elf or .bin")
-    ap.add_argument("-m", "--memory", choices=["on_chip", "flash_load", "flash_exec"], 
+    ap.add_argument("-m", "--memory", choices=["on_chip", "flash_load", "flash_exec"],
                     default="on_chip", help="Execution mode")
     ap.add_argument("--verify", action="store_true", help="Verify after load")
     ap.add_argument("--force", action="store_true", help="Force PL reload")
@@ -135,7 +136,7 @@ def main() -> int:
         gpio_ip = ol.ip_dict["axi_gpio"]
         jtag_ip = ol.ip_dict["axi_jtag"]
         spi_ip = ol.ip_dict.get("axi_quad_spi")
-        
+
         class _Stub:
             def __init__(self):
                 self.gpio = xheepGPIO(ol, int(gpio_ip["phys_addr"]), int(gpio_ip["addr_range"]))
@@ -154,7 +155,7 @@ def main() -> int:
                 else:
                     self.spi = None
                     self.flash_programmer = None
-        
+
         xheep = _Stub()
 
     xvc_addr = xheep.jtag.getAddr()
@@ -179,6 +180,9 @@ def main() -> int:
         ok = False
         try:
             ok = xheep.flash_programmer.program_file(bin_file, verify=args.verify)
+        except KeyboardInterrupt:
+            log("warning", "Interrupted during flash programming")
+            return 130
         except Exception as e:
             log("error", f"Flash programming failed: {e}")
             import traceback
@@ -187,7 +191,12 @@ def main() -> int:
 
         if not ok:
             return 1
-    input("Press enter to start the program on x-heep...")
+
+    try:
+        input("Press enter to start the program on x-heep...")
+    except KeyboardInterrupt:
+        log("warning", "Interrupted before start")
+        return 130
 
     # Ensure X-HEEP has flash control before starting execution
     # (GPIO starts with PS control to prevent flash corruption during setup)
@@ -209,16 +218,22 @@ def main() -> int:
     if args.memory == "flash_exec":
         log("info", "X-HEEP is executing from flash...")
         log("info", "Waiting for completion...")
-        
+
         v, e = xheep.gpio.getExitCode()
         timeout = time.time() + 30
-        while not v and time.time() < timeout:
-            time.sleep(0.01)
+        try:
+            while not v and time.time() < timeout:
+                time.sleep(0.01)
+                v, e = xheep.gpio.getExitCode()
+        except KeyboardInterrupt:
             v, e = xheep.gpio.getExitCode()
-        
+            log("warning", f"Interrupted: valid={v}, value={e}")
+            print(f"exit_valid={v} | exit_value={e}")
+            return 130
+
         if not v:
             log("warning", "Timeout waiting for completion")
-        
+
         print(f"exit_valid={v} | exit_value={e}")
         return 0 if e == 0 else 1
 
@@ -258,13 +273,14 @@ def main() -> int:
 
         if not v:
             log("warning", "Timeout waiting for completion")
-        
+
         print(f"exit_valid={v} | exit_value={e}")
         return 0 if e == 0 else 1
 
     except KeyboardInterrupt:
         v, e = xheep.gpio.getExitCode()
         log("warning", f"Interrupted: valid={v}, value={e}")
+        print(f"exit_valid={v} | exit_value={e}")
         return 130
 
     finally:

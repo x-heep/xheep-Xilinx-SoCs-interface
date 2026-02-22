@@ -58,7 +58,6 @@ CFLAGS = \
     -march=$(ARCH) -mabi=$(ABI) \
     -O2 -g -w \
     -nostartfiles \
-    -msave-restore \
     -ffunction-sections -fdata-sections \
     -DHOST_BUILD $(LINKER_DEF) -DINTERNAL_CRTO
 

@@ -21,14 +21,16 @@ help:
 
 ## @section Setup & Installation
 
-## Install dependencies and the selected toolchain flavor(s)
+## Install dependencies, the selected toolchain flavor(s), and sync sw/device from x-heep
 ## Requires sudo privileges to manage system packages and ConfigFS
 ## @param FLAVOR=base         Toolchain flavor(s) to install: base, float, zfinx, all
+## @param XHEEP_REPO=...      x-heep git URL (default: https://github.com/x-heep/x-heep)
 install:
 	@sudo -v || (echo "sudo is required. Run 'sudo -v' to cache credentials and retry." && exit 1)
 	@sudo bash util/install_apt.sh
 	@sudo bash util/install_git.sh
 	@bash util/install_riscv_toolchain.sh $(FLAVOR)
+	@bash util/install_xheep_sw.sh $(if $(XHEEP_REPO),$(XHEEP_REPO),)
 	@sudo bash -c "grep -qxF 'source /etc/profile.d/pynq_venv.sh' /root/.bashrc || echo 'source /etc/profile.d/pynq_venv.sh' >> /root/.bashrc"
 	@sudo bash -c "grep -qxF 'cd /home/xilinx' /root/.bashrc || echo 'cd /home/xilinx' >> /root/.bashrc"
 

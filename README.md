@@ -85,7 +85,9 @@ The toolchain is installed to `$HOME/.riscv`, matching x-heep's convention:
 
 | Binary | Install path | `-march` | `-mabi` |
 |---|---|---|---|
-| `riscv32-corev-elf-gcc` | `$HOME/.riscv/bin/` | `rv32imc_zicsr` | `ilp32` |
+| `riscv32-unknown-elf-gcc` | `$HOME/.riscv/bin/` | `rv32imc_zicsr` | `ilp32` |
+
+> **Note:** The CI uses the `rv32i-imac` flavor which provides plain rv32imc multilibs (no xcv in libc) — matching embecosm's behavior. The compiler itself still supports CORE-V xcv extensions.
 
 ### Python Packages
 - `pynq` — FPGA bitstream management and MMIO access
@@ -187,7 +189,7 @@ make help                  # Show all available targets and parameters
 ### Building Applications
 
 Applications live under `sw/applications/<app_name>/main.c`.
-The build system uses `riscv32-corev-elf-gcc` (embecosm CORE-V toolchain) to compile for the CV32E40P core and produces both a `.elf` and a flat `.bin` image in `sw/build/<app_name>/`.
+The build system uses `riscv32-unknown-elf-gcc` (CORE-V toolchain) to compile for the CV32E40P core and produces both a `.elf` and a flat `.bin` image in `sw/build/<app_name>/`.
 
 ```bash
 # Build hello_world (on-chip execution, PYNQ-Z2 clock/UART settings)
@@ -228,11 +230,11 @@ Pass `BOARD=<value>` to `make app` to select a different board (default: `pynq-z
 
 #### Toolchain
 
-The `sw/Makefile` uses `riscv32-corev-elf-gcc` from the embecosm CORE-V toolchain installed by `make install` at `$HOME/.riscv`. The compilation flags match x-heep's cmake build exactly:
+The `sw/Makefile` uses `riscv32-unknown-elf-gcc` from the CORE-V toolchain installed by `make install` at `$HOME/.riscv`. The compilation flags match x-heep's cmake build exactly:
 
 | Setting | Value |
 |---|---|
-| Compiler | `$HOME/.riscv/bin/riscv32-corev-elf-gcc` |
+| Compiler | `$HOME/.riscv/bin/riscv32-unknown-elf-gcc` |
 | `-march` | `rv32imc_zicsr` |
 | `-mabi` | `ilp32` |
 | `-specs` | `nano.specs` |

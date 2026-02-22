@@ -54,7 +54,11 @@ echo "Fetching latest release info from ${TOOLCHAIN_REPO}..."
 LATEST_API="https://api.github.com/repos/${TOOLCHAIN_REPO}/releases/latest"
 RELEASE_JSON=$(curl -fsSL "$LATEST_API")
 
-ASSET_PREFIX="riscv-toolchain-${ARCH_LABEL}-xheep-base-"
+# rv32i-imac provides plain rv32imc multilibs (no xcv) — same as embecosm's libc.
+# xheep-base only has xcv multilibs; with -march=rv32imc_zicsr the linker would
+# fall back to an xcv-flavoured libc which may behave differently or have bugs
+# in the development branch. rv32i-imac is the correct match.
+ASSET_PREFIX="riscv-toolchain-${ARCH_LABEL}-rv32i-imac-"
 
 ASSET_URL=$(echo "$RELEASE_JSON" | python3 -c "
 import sys, json

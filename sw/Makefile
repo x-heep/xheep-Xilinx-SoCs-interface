@@ -1,17 +1,21 @@
-# RISC-V toolchain — embecosm CORE-V GCC (riscv32-corev-elf-gcc),
-# the same toolchain used by x-heep.
-#
-# On a developer machine where x-heep is already set up, the toolchain lives at
-# $HOME/.riscv (installed via x-heep's own scripts).
-# On the FPGA board, it is installed by util/install_riscv_toolchain.sh which
-# puts it under /opt/corev-riscv-base.
+# RISC-V toolchain — CORE-V GCC, the same toolchain used by x-heep.
+# Installed by util/install_riscv_toolchain.sh to $HOME/.riscv.
 # Override the path with:  make RISCV=/path/to/toolchain
+#
+# riscv-gnu-toolchain may produce either riscv32-corev-elf-gcc (CORE-V patched)
+# or riscv32-unknown-elf-gcc (default vendor). We detect which is present.
 RISCV     ?= $(HOME)/.riscv
 ARCH      ?= rv32imc_zicsr
 ABI       ?= ilp32
 
-RISCV_GCC     := $(RISCV)/bin/riscv32-corev-elf-gcc
-RISCV_OBJCOPY := $(RISCV)/bin/riscv32-corev-elf-objcopy
+ifneq ($(wildcard $(RISCV)/bin/riscv32-corev-elf-gcc),)
+  RISCV_PREFIX  := riscv32-corev-elf
+else
+  RISCV_PREFIX  := riscv32-unknown-elf
+endif
+
+RISCV_GCC     := $(RISCV)/bin/$(RISCV_PREFIX)-gcc
+RISCV_OBJCOPY := $(RISCV)/bin/$(RISCV_PREFIX)-objcopy
 
 XHEEP_SW ?= $(CURDIR)
 

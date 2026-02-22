@@ -1,37 +1,49 @@
 #!/bin/bash
 set -euo pipefail
 
-# Remove all xheep CoreV RISC-V toolchain flavors installed by install_riscv_toolchain.sh
+# Remove the embecosm CORE-V RISC-V toolchain installed by install_riscv_toolchain.sh.
+# Removes $HOME/.riscv and cleans up PATH entries in shell rc files.
+# Also removes any legacy /opt installs from older versions of the script.
 
-FLAVORS=(xheep-base xheep-float xheep-zfinx)
-INSTALL_BASE="/opt"
-SYMLINKS=(/opt/openhw-riscv-base /opt/openhw-riscv-float /opt/openhw-riscv-zfinx)
+INSTALL_DIR="${HOME}/.riscv"
+
+# Remove the toolchain directory
+if [ -d "${INSTALL_DIR}" ]; then
+    echo "Removing ${INSTALL_DIR}..."
+    rm -rf "${INSTALL_DIR}"
+else
+    echo "${INSTALL_DIR} not found, skipping."
+fi
+
+# Remove PATH entry from shell rc files
+PATH_LINE="export PATH=\"${INSTALL_DIR}/bin:\$PATH\""
+for RC in "${HOME}/.bashrc" "${HOME}/.zshrc"; do
+    if [ -f "$RC" ] && grep -qF "$PATH_LINE" "$RC" 2>/dev/null; then
+        sed -i "\|${PATH_LINE}|d" "$RC"
+        echo "Removed PATH entry from ${RC}"
+    fi
+done
+
+# Remove legacy /opt installs from older versions of this script
+LEGACY_FLAVORS=(xheep-base xheep-float xheep-zfinx)
+LEGACY_SYMLINKS=(/opt/openhw-riscv-base /opt/openhw-riscv-float /opt/openhw-riscv-zfinx)
 
 for ARCH_LABEL in armhf aarch64; do
-  for FLAVOR in "${FLAVORS[@]}"; do
-    INSTALL_DIR="${INSTALL_BASE}/riscv-${ARCH_LABEL}-${FLAVOR}"
-    if [ -d "$INSTALL_DIR" ]; then
-      echo "Removing ${INSTALL_DIR}..."
-      sudo rm -rf "$INSTALL_DIR"
-    fi
-
-    PATH_LINE="export PATH=\"${INSTALL_DIR}/bin:\$PATH\""
-    if grep -qF "$PATH_LINE" /root/.bashrc 2>/dev/null; then
-      sudo sed -i "\|${PATH_LINE}|d" /root/.bashrc
-      echo "Removed PATH entry from /root/.bashrc"
-    fi
-    if [ "${USER:-}" != "root" ] && grep -qF "$PATH_LINE" "$HOME/.bashrc" 2>/dev/null; then
-      sed -i "\|${PATH_LINE}|d" "$HOME/.bashrc"
-      echo "Removed PATH entry from $HOME/.bashrc"
-    fi
-  done
+    for FLAVOR in "${LEGACY_FLAVORS[@]}"; do
+        LEGACY_DIR="/opt/riscv-${ARCH_LABEL}-${FLAVOR}"
+        if [ -d "$LEGACY_DIR" ]; then
+            echo "Removing legacy install ${LEGACY_DIR}..."
+            sudo rm -rf "$LEGACY_DIR"
+        fi
+    done
 done
 
-for SYMLINK in "${SYMLINKS[@]}"; do
-  if [ -L "$SYMLINK" ]; then
-    echo "Removing symlink ${SYMLINK}..."
-    sudo rm -f "$SYMLINK"
-  fi
+for SYMLINK in "${LEGACY_SYMLINKS[@]}"; do
+    if [ -L "$SYMLINK" ]; then
+        echo "Removing legacy symlink ${SYMLINK}..."
+        sudo rm -f "$SYMLINK"
+    fi
 done
 
-echo "All xheep CoreV RISC-V toolchain flavors uninstalled."
+echo ""
+echo "CORE-V RISC-V toolchain uninstalled."

@@ -1,27 +1,17 @@
-# Toolchain flavor — selects compiler prefix, march and mabi automatically.
-# Allowed values: base (default), float, zfinx
-FLAVOR ?= base
+# RISC-V toolchain — embecosm CORE-V GCC (riscv32-corev-elf-gcc),
+# the same toolchain used by x-heep.
+#
+# On a developer machine where x-heep is already set up, the toolchain lives at
+# $HOME/.riscv (installed via x-heep's own scripts).
+# On the FPGA board, it is installed by util/install_riscv_toolchain.sh which
+# puts it under /opt/corev-riscv-base.
+# Override the path with:  make RISCV=/path/to/toolchain
+RISCV     ?= $(HOME)/.riscv
+ARCH      ?= rv32imc_zicsr
+ABI       ?= ilp32
 
-ifeq ($(FLAVOR),float)
-  _RISCV_DIR = /opt/openhw-riscv-float
-  _ARCH      = rv32imfc_zicsr_zifencei
-  _ABI       = ilp32f
-else ifeq ($(FLAVOR),zfinx)
-  _RISCV_DIR = /opt/openhw-riscv-zfinx
-  _ARCH      = rv32imc_zicsr_zifencei_zfinx
-  _ABI       = ilp32
-else
-  _RISCV_DIR = /opt/openhw-riscv-base
-  _ARCH      = rv32imc_zicsr_zifencei
-  _ABI       = ilp32
-endif
-
-RISCV     ?= $(_RISCV_DIR)
-ARCH      ?= $(_ARCH)
-ABI       ?= $(_ABI)
-
-RISCV_GCC     := $(RISCV)/bin/riscv32-unknown-elf-gcc
-RISCV_OBJCOPY := $(RISCV)/bin/riscv32-unknown-elf-objcopy
+RISCV_GCC     := $(RISCV)/bin/riscv32-corev-elf-gcc
+RISCV_OBJCOPY := $(RISCV)/bin/riscv32-corev-elf-objcopy
 
 XHEEP_SW ?= $(CURDIR)
 
@@ -52,25 +42,32 @@ else
   LINKER_DEF := -DON_CHIP
 endif
 
+# Flags match x-heep's cmake build exactly:
+#   -march=rv32imc_zicsr   (no xcv, no zifencei — matches the PYNQ-Z2 bitstream)
+#   -DHOST_BUILD           (keeps memory.c from redefining memset/memcpy/etc.)
+#   -DINTERNAL_CRTO        (use our own crt0.S instead of the toolchain's crt0)
 CFLAGS = \
     -march=$(ARCH) -mabi=$(ABI) \
     -O2 -g -w \
     -nostartfiles \
     -ffunction-sections -fdata-sections \
+    -DHOST_BUILD \
     $(LINKER_DEF) -DINTERNAL_CRTO
 
-# nano.specs links against the reduced-footprint newlib (libc_nano), which has
-# significantly smaller BSS than the standard newlib used by nosys.specs.
-# This keeps data sections within the ram1 budget.
+# nano.specs links against the reduced-footprint newlib (libc_nano).
+# -L points to the toolchain's own lib directory so the correct libc_nano is
+# found instead of a system default.
 LDFLAGS = \
     -T $(LINKER_SCRIPT) \
     -static \
     -Wl,-Map=$(BUILD_DIR)/$(APP).map \
     -Wl,--gc-sections \
     -ffunction-sections -fdata-sections \
+    -L $(RISCV)/riscv32-corev-elf/lib \
+    -L $(RISCV)/riscv-corev-elf/lib \
     -specs=nano.specs
 
-LDLIBS = -lc -lgcc
+LDLIBS = -lc -lm -lgcc
 
 INCLUDES = \
     -I$(XHEEP_SW)/device/target/$(TARGET_LC) \

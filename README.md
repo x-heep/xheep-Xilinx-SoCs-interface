@@ -36,13 +36,8 @@ The installation process is fully automated through a single command.
 This script installs system dependencies, builds OpenOCD with specific patches, and configures the Python environment.
 
 ```bash
-make install                  # Install the default toolchain flavor (base — rv32imc, no FPU)
-make install FLAVOR=float     # Install the hardware FPU flavor (rv32imfc)
-make install FLAVOR=zfinx     # Install the Zfinx flavor (rv32imc_zfinx)
-make install FLAVOR=all       # Install all three flavors at once
+make install
 ```
-
-Only the selected flavor is downloaded and installed. Use `FLAVOR=all` to install all three in one shot.
 
 > Note: This requires `sudo` privileges to manage system packages, install OpenOCD, and manipulate the kernel's ConfigFS.
 
@@ -82,19 +77,15 @@ This copies all necessary files (notebook, drivers, config, DTS templates) to `~
 - `jdupes` — hardlink deduplication across toolchain flavors to reduce disk usage
 
 ### RISC-V CoreV Toolchain
-`make install` automatically downloads and installs the **CoreV RISC-V toolchain** from the
+`make install` automatically downloads and installs the **embecosm CORE-V RISC-V toolchain** (`riscv32-corev-elf-gcc`) from the
 [riscv-Xilinx-SoCs-toolchain](https://github.com/Christian-Conti/riscv-Xilinx-SoCs-toolchain)
-GitHub releases. Only the flavor selected by `FLAVOR` is installed under `/opt/`:
+GitHub releases. This is the same toolchain used by x-heep, cross-compiled for ARM hosts (armhf/aarch64).
 
-| `FLAVOR` | Symlink | `-march` | `-mabi` | Use case |
-|---|---|---|---|---|
-| `base` (default) | `/opt/openhw-riscv-base` | `rv32imc` | `ilp32` | No FPU |
-| `float` | `/opt/openhw-riscv-float` | `rv32imfc` | `ilp32f` | Hardware FPU |
-| `zfinx` | `/opt/openhw-riscv-zfinx` | `rv32imc_zfinx` | `ilp32` | Zfinx (float in integer regs) |
+The toolchain is installed to `$HOME/.riscv`, matching x-heep's convention:
 
-Use `make install FLAVOR=<flavor>` to install a single flavor, or `make install FLAVOR=all` to install all three at once. If multiple flavors are present, `jdupes` automatically deduplicates shared files using hardlinks to minimize disk usage.
-
-The active flavor is selected at build time via the same `FLAVOR` variable (see [Building Applications](#building-applications)).
+| Binary | Install path | `-march` | `-mabi` |
+|---|---|---|---|
+| `riscv32-corev-elf-gcc` | `$HOME/.riscv/bin/` | `rv32imc_zicsr` | `ilp32` |
 
 ### Python Packages
 - `pynq` — FPGA bitstream management and MMIO access
@@ -170,18 +161,14 @@ The `xheepGPIO` class manages the following control signals via the `axi_gpio` I
 ### Makefile
 
 ```bash
-make install                  # Install dependencies + base toolchain flavor (rv32imc)
-make install FLAVOR=float     # Install dependencies + float toolchain flavor (rv32imfc)
-make install FLAVOR=zfinx     # Install dependencies + zfinx toolchain flavor
-make install FLAVOR=all       # Install dependencies + all three toolchain flavors
-make uninstall                # Remove all installed toolchain flavors and clean PATH entries (requires sudo)
+make install               # Install dependencies, toolchain, and sync sw/device from x-heep
+make uninstall             # Remove the toolchain and clean PATH entries (requires sudo)
 make install-notebook      # Install Jupyter notebook interface to ~/jupyter_notebooks/xheep
 make uninstall-notebook    # Remove the Jupyter notebook interface
-make app                   # Compile hello_world (rv32imc, no FPU)
+make app                   # Compile hello_world for on-chip execution
 make app APP=my_app        # Compile a custom application
-make app APP=my_app LINKER=flash_load            # Compile for flash boot
-make app APP=my_app FLAVOR=float                 # Compile with hardware FPU (rv32imfc)
-make app APP=my_app FLAVOR=zfinx                 # Compile with Zfinx (rv32imc_zfinx)
+make app APP=my_app LINKER=flash_load   # Compile for flash boot
+make app APP=my_app BOARD=aup-zu3       # Compile for a different board
 make run                   # Run with default parameters
 make run LINKER=flash_load OVERLAY=xilinx_core_v_mini_mcu_wrapper.bit
 make help                  # Show all available targets and parameters
@@ -196,15 +183,14 @@ make help                  # Show all available targets and parameters
 | `USER`      | `xilinx`                                  | Username for notebook installation path                          |
 | `APP`       | `hello_world`                             | Application name (folder under `sw/applications/`)               |
 | `BOARD`     | `pynq-z2`                                 | Target board: `pynq-z2`, `aup-zu3`                               |
-| `FLAVOR`    | `base`                                    | Toolchain flavor: `base`, `float`, `zfinx` (or `all` for `make install`) |
 
 ### Building Applications
 
 Applications live under `sw/applications/<app_name>/main.c`.
-The build system uses `riscv32-unknown-elf-gcc` (CoreV toolchain) to compile for the CV32E40P core and produces both a `.elf` and a flat `.bin` image in `sw/build/<app_name>/`.
+The build system uses `riscv32-corev-elf-gcc` (embecosm CORE-V toolchain) to compile for the CV32E40P core and produces both a `.elf` and a flat `.bin` image in `sw/build/<app_name>/`.
 
 ```bash
-# Build hello_world (on-chip execution, PYNQ-Z2 clock/UART settings, no FPU)
+# Build hello_world (on-chip execution, PYNQ-Z2 clock/UART settings)
 # No external dependencies needed — device library is bundled in sw/device/
 make app
 
@@ -214,11 +200,8 @@ make app APP=my_app
 # Build for flash boot
 make app APP=my_app LINKER=flash_load
 
-# Build with hardware FPU support (requires xheep-float toolchain)
-make app APP=my_app FLAVOR=float
-
-# Build with Zfinx (float in integer registers)
-make app APP=my_app FLAVOR=zfinx
+# Build for a different board
+make app APP=my_app BOARD=aup-zu3
 
 # Run immediately after build
 make app APP=my_app && make run LINKER=on_chip
@@ -245,14 +228,15 @@ Pass `BOARD=<value>` to `make app` to select a different board (default: `pynq-z
 
 #### Toolchain
 
-The `sw/Makefile` uses `riscv32-unknown-elf-gcc` from the CoreV toolchain installed by `make install`.
-The active toolchain is selected by the `FLAVOR` flag, which automatically sets `-march`, `-mabi`, and `RISCV` path:
+The `sw/Makefile` uses `riscv32-corev-elf-gcc` from the embecosm CORE-V toolchain installed by `make install` at `$HOME/.riscv`. The compilation flags match x-heep's cmake build exactly:
 
-| `FLAVOR` | Toolchain path | `-march` | `-mabi` |
-|---|---|---|---|
-| `base` (default) | `/opt/openhw-riscv-base` | `rv32imc_zicsr_zifencei_xcvmem_xcvmac_xcvbi_xcvalu_xcvsimd_xcvbitmanip` | `ilp32` |
-| `float` | `/opt/openhw-riscv-float` | `rv32imfc_zicsr_zifencei_xcvmem_xcvmac_xcvbi_xcvalu_xcvsimd_xcvbitmanip` | `ilp32f` |
-| `zfinx` | `/opt/openhw-riscv-zfinx` | `rv32imc_zicsr_zifencei_zfinx_xcvmem_xcvmac_xcvbi_xcvalu_xcvsimd_xcvbitmanip` | `ilp32` |
+| Setting | Value |
+|---|---|
+| Compiler | `$HOME/.riscv/bin/riscv32-corev-elf-gcc` |
+| `-march` | `rv32imc_zicsr` |
+| `-mabi` | `ilp32` |
+| `-specs` | `nano.specs` |
+| Key defines | `-DHOST_BUILD -DINTERNAL_CRTO` |
 
 The x-heep device library (startup code, runtime, UART/SoC drivers) is **bundled directly in `sw/device/`**, so no external x-heep clone is required on the board.
 

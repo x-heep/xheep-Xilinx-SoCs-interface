@@ -219,8 +219,10 @@ def main() -> int:
     xheep.gpio.deassertReset()
     time.sleep(0.1)
 
-    # For flash_exec, we don't load via JTAG
-    if args.memory == "flash_exec":
+    # For flash_exec and flash_load, X-HEEP handles flash access autonomously
+    # (flash_exec: XIP execution; flash_load: bootrom copies flash->RAM)
+    # No JTAG loading needed in either case - only on_chip uses JTAG
+    if args.memory in ["flash_exec", "flash_load"]:
         log("info", "X-HEEP is executing from flash...")
         log("info", "Waiting for completion...")
 

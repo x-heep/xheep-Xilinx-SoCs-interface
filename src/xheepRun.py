@@ -201,8 +201,13 @@ def main() -> int:
     # Ensure X-HEEP has flash control before starting execution
     # (GPIO starts with PS control to prevent flash corruption during setup)
     xheep.gpio.setSpiFlashControl(False)
+    xheep.gpio.resetJTAG()
 
-    # Configure boot mode
+    # Hold X-HEEP in reset while configuring boot mode to prevent spurious
+    # execution caused by BOOTSEL/EXECFLASH changing while RST_NI=1
+    xheep.gpio.assertReset()
+
+    # Configure boot mode (safe: RST_NI=0)
     if args.memory == "on_chip":
         xheep.gpio.bootFromJTAG()
     elif args.memory == "flash_load":
@@ -210,8 +215,8 @@ def main() -> int:
     elif args.memory == "flash_exec":
         xheep.gpio.execFromFlash()
 
-    xheep.gpio.resetJTAG()
-    xheep.gpio.resetXheep()
+    # Release reset - X-HEEP starts exactly once with the correct boot mode
+    xheep.gpio.deassertReset()
     time.sleep(0.1)
 
     # For flash_exec, we don't load via JTAG

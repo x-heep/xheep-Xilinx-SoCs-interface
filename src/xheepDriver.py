@@ -103,11 +103,17 @@ class xheepGPIO:
         self._mmio.write(self.CH1_DATA, new_val)
         time.sleep(20e-3)  # Wait for mux to settle
 
-    def resetXheep(self) -> None:
+    def assertReset(self) -> None:
         self.setBit(0, self.BIT_RST_NI, 0)
         time.sleep(1e-3)
+
+    def deassertReset(self) -> None:
         self.setBit(0, self.BIT_RST_NI, 1)
         time.sleep(1e-3)
+
+    def resetXheep(self) -> None:
+        self.assertReset()
+        self.deassertReset()
 
     def resetJTAG(self) -> None:
         self.setBit(0, self.BIT_TRST_NI, 0)

@@ -6,12 +6,12 @@ NOTEBOOK_DIR := /home/$(USER)/jupyter_notebooks/xheep
 # Run / build parameters — all overridable on the command line
 LINKER    ?= on_chip
 BOARD     ?= pynq-z2
-APP       ?= hello_world
+PROJECT       ?= hello_world
 OVERLAY   ?= xilinx_core_v_mini_mcu_wrapper.bit
 FLAVOR    ?= base
 
 # Derived path to firmware (used by 'make run')
-TARGET  := sw/build/$(APP)/$(APP).elf
+TARGET  := sw/build/$(PROJECT)/$(PROJECT).elf
 
 .PHONY: help install install-notebook uninstall uninstall-notebook run app app-clean clean
 
@@ -63,7 +63,7 @@ install-notebook:
 ## @section Execution
 
 ## Run firmware on x-heep via JTAG (or flash for flash_load/flash_exec)
-## @param APP=hello_world     Application to run (must be built first)
+## @param PROJECT=hello_world     Application to run (must be built first)
 ## @param LINKER=on_chip      Execution mode: on_chip, flash_load, flash_exec
 ## @param OVERLAY=...bit      Path to FPGA bitstream
 run:
@@ -72,15 +72,15 @@ run:
 ## @section Application Build
 
 ## Compile a RISC-V application using the installed CoreV RISC-V toolchain
-## Produces sw/build/APP/APP.{elf,bin}
-## Always removes any previous build of the same APP before recompiling.
-## @param APP=hello_world     Application folder under sw/applications/
+## Produces sw/build/PROJECT/PROJECT.{elf,bin}
+## Always removes any previous build of the same PROJECT before recompiling.
+## @param PROJECT=hello_world     Application folder under sw/applications/
 ## @param LINKER=on_chip      Linker mode: on_chip, flash_load, flash_exec
 ## @param BOARD=pynq-z2       Target board: pynq-z2, aup-zu3
 ## @param FLAVOR=base         Toolchain flavor: base (rv32imc), float (rv32imfc), zfinx (rv32imc_zfinx)
 app:
-	@rm -rf sw/build/$(APP)
-	@$(MAKE) -C sw APP=$(APP) LINKER=$(LINKER) TARGET=$(BOARD) FLAVOR=$(FLAVOR)
+	@rm -rf sw/build/$(PROJECT)
+	@$(MAKE) -C sw PROJECT=$(PROJECT) LINKER=$(LINKER) TARGET=$(BOARD) FLAVOR=$(FLAVOR)
 
 ## Clean application build artefacts
 app-clean:

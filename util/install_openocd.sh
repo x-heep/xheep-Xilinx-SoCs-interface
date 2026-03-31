@@ -48,6 +48,13 @@ echo "Applying patch: ${PATCH_PATH}"
 patch -p1 --no-backup-if-mismatch --force < "${PATCH_PATH}" >/dev/null 2>&1 || true
 
 git add -A || true
+# Set local git identity if not already set (for patch commit)
+if ! git config user.email >/dev/null; then
+  git config user.email "x-heep@localhost"
+fi
+if ! git config user.name >/dev/null; then
+  git config user.name "x-heep"
+fi
 git commit -m "Apply x-heep patch" || true
 
 echo "Initializing and updating submodules"

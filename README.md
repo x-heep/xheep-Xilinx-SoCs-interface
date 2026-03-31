@@ -1,15 +1,18 @@
 # x-heep Xilinx SoCs Interface
 
-This repository provides the software interface and drivers to integrate the [x-heep](https://github.com/x-heep/x-heep) RISC-V core with the Processing System (PS) of Xilinx SoCs.
-This framework enables remote connectivity to the boards via SSH to deploy, test, and debug x-heep without physical access to the JTAG or UART headers.
+**Xilinx SoCs on-board support for [x-heep](https://github.com/x-heep/x-heep).**
 
-The on-board Processing System enables a full "remote-lab" experience for RISC-V development.
-The project acts as a bridge between the Xilinx ARM-based Processing System and the FPGA Programmable Logic (PL) where x-heep resides. It automates the complex process of synchronizing the Linux hardware description (Device Tree) with the live state of the FPGA.
+---
+
+This repository provides the software interface and drivers required to integrate the [x-heep](https://github.com/x-heep/x-heep) RISC-V core with the Processing System (PS) of Xilinx SoCs. 
+
+Acting as a bridge between the Xilinx ARM-based Processing System and the FPGA Programmable Logic (PL) hosting x-heep, this framework enables a fully remote development. 
+Users can deploy, test, and debug the core via SSH, entirely eliminating the need for physical access to on-board JTAG or UART headers.
 
 ### Key Features
 
 * **Remote Deployment via SSH:** Manage the entire development cycle (programming, execution, and monitoring) over a network connection.
-* **Remote Bitstream Loading:** Deploy x-heep hardware designs directly from Python using PYNQ-based drivers.
+* **Remote Bitstream Loading:** Deploy x-heep hardware designs directly from Python using [PYNQ](https://github.com/Xilinx/PYNQ)-based drivers.
 * **OpenOCD & XVC Integration:** Leverages OpenOCD 0.12.0 and the Xilinx Virtual Cable (XVC) protocol to load `.elf` firmware over AXI JTAG.
 * **Dynamic UART Overlay:** Automatically patches, compiles, and loads a Linux Device Tree Overlay (DTO) to expose the AXI UART as a system device.
 * **Dynamic SPI Overlay:** Automatically manages the AXI Quad SPI device tree overlay to expose the SPI bus for flash programming.
@@ -26,7 +29,8 @@ The project acts as a bridge between the Xilinx ARM-based Processing System and 
 | PYNQ-Z2  | Zynq-7000 (XC7Z020)| Supported | Requires `PS_ENABLE` to be active in the x-heep bitstream. |
 | AUP-ZU3  | ZynqMP (XCZU3EG)   | Supported | Requires `PS_ENABLE` to be active in the x-heep bitstream. |
 
-> **Important:** Ensure that the Vivado version used to implement x-heep is consistent with the Linux distribution installed on the board. Mismatched versions may cause issues with JTAG TAP identification and bitstream loading.
+> **Important:** Ensure that the Vivado version used to implement x-heep is consistent with the PYNQ distribution installed on the board. 
+>                Mismatched versions may cause issues with JTAG TAP identification and bitstream loading.
 
 ---
 
@@ -36,33 +40,33 @@ The installation process is fully automated through a single command.
 This script installs system dependencies, builds OpenOCD with specific patches, and configures the Python environment.
 
 ```bash
-make install
+sudo make install
 ```
 
-> Note: This requires `sudo` privileges to manage system packages, install OpenOCD, and manipulate the kernel's ConfigFS.
+> **Note:** This requires `sudo` privileges to manage system packages, install OpenOCD, and manipulate the kernel's ConfigFS.
 
 ### OpenOCD Build and Patch
 
 During installation, the script automatically:
 
-1. **Clones OpenOCD** from the official repository at version v0.12.0
-2. **Applies a custom patch** (`patch/openocd.patch`) required for correct operation with the x-heep RISC-V core:
-   - Disables `vlenb` register probing unless the vector extension (V) is present in MISA
-   - Disables `MTOPI`/`MTOPEI` privileged interrupt register probing
-   - Replaces hard assertions with warnings for graceful degradation
+1. **Clones OpenOCD** from the official repository at version v0.12.0.
+2. **Applies a Custom Patch** (`patch/openocd.patch`) required for correct operation with the x-heep RISC-V core:
+   * Disables `vlenb` register probing unless the vector extension (V) is present in MISA.
+   * Disables `MTOPI`/`MTOPEI` privileged interrupt register probing.
+   * Replaces hard assertions with warnings for graceful degradation.
 3. **Builds OpenOCD** with the following features enabled:
-   - FTDI interface support (`--enable-ftdi`)
-   - Bitbang driver support (`--enable-bitbang`)
-   - Xilinx AXI XVC support (`--enable-xlnx-axi-xvc`)
-   - Internal JimTcl interpreter (`--enable-internal-jimtcl`)
-4. **Installs OpenOCD** system-wide at `/usr/local/bin/openocd`
+   * FTDI interface support (`--enable-ftdi`)
+   * Bitbang driver support (`--enable-bitbang`)
+   * Xilinx AXI XVC support (`--enable-xlnx-axi-xvc`)
+   * Internal JimTcl interpreter (`--enable-internal-jimtcl`)
+4. **Installs OpenOCD** system-wide at `/usr/local/bin/openocd`.
 
-### Notebook Installation
+### Jupyter Notebook Installation
 
 To install the Jupyter notebook interface to the board's default notebook directory:
 
 ```bash
-make install-notebook
+sudo make install-notebook
 ```
 
 This copies all necessary files (notebook, drivers, config, DTS templates) to `~/jupyter_notebooks/xheep`. The target user can be customized with `USER=<username>`.
@@ -72,45 +76,43 @@ This copies all necessary files (notebook, drivers, config, DTS templates) to `~
 ## Dependencies
 
 ### System Packages
-- `device-tree-compiler` — compiles `.dts` templates into `.dtbo` binaries
-- `picocom` — serial terminal for UART monitoring
-- `jdupes` — hardlink deduplication across toolchain flavors to reduce disk usage
-
+* `device-tree-compiler` — compiles `.dts` templates into `.dtbo` binaries.
+* `picocom` — serial terminal for UART monitoring.
+* `jdupes` — hardlink deduplication across toolchain flavors to reduce disk usage.
 
 ### RISC-V Toolchain
 
 The RISC-V toolchain used in this repository is available at: [https://github.com/vlsi-lab/riscv-Xilinx-SoCs-toolchain](https://github.com/vlsi-lab/riscv-Xilinx-SoCs-toolchain)
 
-**Key points:**
-- The toolchain is fragmented into different flavors, depending on the target ISA to reduce its size.
-- It is updated at the beginning of each month to provide the latest features and fixes.
-- The toolchain is installed to `$HOME/.riscv`, matching x-heep's convention.
+**Key Points:**
+* The toolchain is fragmented into different flavors depending on the target ISA to reduce its size.
+* It is updated at the beginning of each month to provide the latest features and fixes.
+* The toolchain is installed to `$HOME/.riscv`, matching x-heep's convention.
 
-`make install` automatically downloads and installs the appropriate toolchain flavor for your platform. 
-This is the same toolchain used by x-heep, cross-compiled for ARM hosts (armhf/aarch64).
+`make install` automatically downloads and installs the appropriate toolchain flavor for your platform. This is the same toolchain used by x-heep, cross-compiled for ARM hosts (armhf/aarch64).
 
-| Binary | Install path | `-march` | `-mabi` |
+| Binary | Install Path | `-march` | `-mabi` |
 |---|---|---|---|
 | `riscv32-unknown-elf-gcc` | `$HOME/.riscv/bin/` | `rv32imc_zicsr` | `ilp32` |
 
 > **Note:** The CI uses the `rv32i-imac` flavor which provides plain rv32imc multilibs (no xcv in libc) — matching embecosm's behavior. The compiler itself still supports CORE-V xcv extensions.
 
 ### Python Packages
-- `pynq` — FPGA bitstream management and MMIO access
-- `pyserial` — UART serial communication
-- `ipywidgets` — interactive widgets for the Jupyter notebook
+* [`pynq`](https://github.com/Xilinx/PYNQ) — FPGA bitstream management and MMIO access. **(Required)**
+* `pyserial` — UART serial communication.
+* `ipywidgets` — interactive widgets for the Jupyter notebook.
 
 ### External Tools
-- OpenOCD v0.12.0 (built and patched during `make install`)
-- Vivado-generated `.bit` bitstream with the x-heep design and PS\_ENABLE active
+* OpenOCD v0.12.0 (built and patched during `make install`).
+* Vivado-generated `.bit` bitstream with the x-heep design and `PS_ENABLE` active.
 
 ---
-
+   
 ## Execution Flow
 
 The `xheepRun.py` script follows a strict sequence to ensure hardware stability and kernel synchronization. It supports three execution modes controlled via the `--memory` flag:
 
-### On-Chip Memory Mode (JTAG) — Default
+### 1. On-Chip Memory Mode (JTAG) — Default
 The fastest execution mode, suitable for small programs that fit in internal RAM.
 
 1. **UART Cleanup:** Before any hardware changes, the script checks if the AXI UART is active. It performs a driver unbind and removes the existing overlay to prevent kernel hangs during PL reset.
@@ -120,21 +122,26 @@ The fastest execution mode, suitable for small programs that fit in internal RAM
 5. **JTAG Firmware Load:** OpenOCD starts an XVC server using the AXI JTAG base address. The script connects via Telnet to halt the core and load the `.elf` firmware into memory.
 6. **Monitoring:** Once execution begins, the script monitors GPIO signals. Upon completion, it displays the Exit Valid and Exit Value codes.
 
-### Flash Load Mode
-Program the external flash memory and load/execute via JTAG. Useful for larger programs.
+### 2. Flash Load Mode
+Programs the external flash memory and loads/executes via JTAG. Useful for larger programs.
 
-1. Steps 1–4 same as above.
-2. **Flash Programming:** The firmware binary is programmed into external SPI NOR flash using direct MMIO (without requiring kernel SPI drivers).
-3. **Flash Boot Configuration:** GPIO is configured to boot from flash.
-4. **JTAG Loading:** Firmware is loaded and executed the same as on-chip mode.
+1. **UART Cleanup:** Unbinds the driver and removes the existing overlay.
+2. **PL Reset & Programming:** Resets PL and loads the new bitstream.
+3. **Dynamic Overlay Injection:** Injects the `.dtbo` to re-attach the UART (`/dev/ttyUL0`).
+4. **User Confirmation:** Halts and waits for the user to press Enter.
+5. **Flash Programming:** The firmware binary is programmed into external SPI NOR flash using direct MMIO (without requiring kernel SPI drivers).
+6. **Flash Boot Configuration:** GPIO is configured to boot from flash.
+7. **JTAG Loading:** Firmware is loaded and executed the same as on-chip mode.
 
-### Flash Execute Mode
-Boot and execute directly from flash without JTAG loading. Most persistent mode.
+### 3. Flash Execute Mode
+Boots and executes directly from flash without JTAG loading. The most persistent mode.
 
-1. Steps 1–3 same as above.
-2. **Flash Boot Configuration:** GPIO is configured to execute directly from flash.
-3. **Direct Execution:** X-HEEP boots from flash and executes immediately without JTAG intervention.
-4. **Monitoring:** Script monitors exit codes via GPIO.
+1. **UART Cleanup:** Unbinds the driver and removes the existing overlay.
+2. **PL Reset & Programming:** Resets PL and loads the new bitstream.
+3. **Dynamic Overlay Injection:** Injects the `.dtbo` to re-attach the UART (`/dev/ttyUL0`).
+4. **Flash Boot Configuration:** GPIO is configured to execute directly from flash.
+5. **Direct Execution:** X-HEEP boots from flash and executes immediately without JTAG intervention.
+6. **Monitoring:** The script monitors exit codes via GPIO.
 
 ---
 
@@ -145,9 +152,9 @@ Boot and execute directly from flash without JTAG loading. Most persistent mode.
 The repository uses a specific OpenOCD configuration (`cfg/xheep_xilinx_xvc.cfg`) to enable the Xilinx Virtual Cable. This configuration allows OpenOCD to communicate with the `axi_jtag` IP inside the FPGA by mapping JTAG operations to memory-mapped I/O (MMIO) registers at the address specified by `XVC_DEV_ADDR`.
 
 The configuration exposes the following network ports:
-- **4444** — Telnet command interface
-- **3333** — GDB remote debugging
-- **6666** — TCL RPC interface
+* **4444** — Telnet command interface
+* **3333** — GDB remote debugging
+* **6666** — TCL RPC interface
 
 ### GPIO Mapping
 
@@ -166,7 +173,7 @@ The `xheepGPIO` class manages the following control signals via the `axi_gpio` I
 
 ## Usage
 
-### Makefile
+### Makefile Commands
 
 ```bash
 make install               # Install dependencies, toolchain, and sync sw/device from x-heep
@@ -182,7 +189,7 @@ make run LINKER=flash_load OVERLAY=xilinx_core_v_mini_mcu_wrapper.bit
 make help                  # Show all available targets and parameters
 ```
 
-**Makefile parameters:**
+**Makefile Parameters:**
 
 | Variable    | Default                                   | Description                                                      |
 | ----------- | ----------------------------------------- | ---------------------------------------------------------------- |
@@ -215,27 +222,24 @@ make app APP=my_app BOARD=aup-zu3
 make app APP=my_app && make run LINKER=on_chip
 ```
 
-#### Creating a new application
-
+**Creating a New Application:**
 1. Create a directory `sw/applications/<app_name>/`
 2. Add a `main.c` file (standard C, bare-metal)
 3. Run `make app APP=<app_name>`
 
-The runtime provides `printf` output over the AXI UART (accessible via `/dev/ttyUL0` after `make run`).
+The runtime provides `printf` output over the AXI UART (accessible via `/dev/ttyUL0` after running `make run`).
 
-#### Supported target boards
-
+**Supported Target Boards:**
 The `BOARD` variable selects the board-specific `x-heep.h` header (clock frequency, UART baud rate, etc.):
 
-| `BOARD` value | Board           | Clock  |
-| ------------- | --------------- | ------ |
-| `pynq-z2`     | PYNQ-Z2         | 15 MHz |
-| `aup-zu3`     | AUP-ZU3         | 50 MHz |
+| `BOARD` Value | Board           |
+| ------------- | --------------- |
+| `pynq-z2`     | PYNQ-Z2         |
+| `aup-zu3`     | AUP-ZU3-8GB     |
 
-Pass `BOARD=<value>` to `make app` to select a different board (default: `pynq-z2`).
+Pass `BOARD=<value>` to `make app` to select a different board (default is `pynq-z2`).
 
-#### Toolchain
-
+**Toolchain Settings:**
 The `sw/Makefile` uses `riscv32-unknown-elf-gcc` from the CORE-V toolchain installed by `make install` at `$HOME/.riscv`. The compilation flags match x-heep's cmake build exactly:
 
 | Setting | Value |
@@ -244,11 +248,11 @@ The `sw/Makefile` uses `riscv32-unknown-elf-gcc` from the CORE-V toolchain insta
 | `-march` | `rv32imc_zicsr` |
 | `-mabi` | `ilp32` |
 | `-specs` | `nano.specs` |
-| Key defines | `-DHOST_BUILD -DINTERNAL_CRTO` |
+| Key Defines | `-DHOST_BUILD -DINTERNAL_CRTO` |
 
 The x-heep device library (startup code, runtime, UART/SoC drivers) is **bundled directly in `sw/device/`**, so no external x-heep clone is required on the board.
 
-### CLI
+### Command Line Interface (CLI)
 
 To program the FPGA and run a firmware image remotely:
 
@@ -259,18 +263,14 @@ python src/xheepRun.py \
   --memory on_chip
 ```
 
-### Argument Details
-
-* `-o, --overlay`: Path to the FPGA bitstream (`.bit`) [required]
-* `-f, --firmware`: Path to the compiled RISC-V `.elf` or `.bin` firmware [required]
+**Argument Details:**
+* `-o, --overlay`: Path to the FPGA bitstream (`.bit`) [**required**]
+* `-f, --firmware`: Path to the compiled RISC-V `.elf` or `.bin` firmware [**required**]
 * `-m, --memory`: Execution mode: `on_chip` (default), `flash_load`, or `flash_exec`
-  - `on_chip`: Load and execute from internal RAM via JTAG (fastest, suitable for small programs)
-  - `flash_load`: Program flash, then load and execute via JTAG (for larger programs)
-  - `flash_exec`: Program flash and boot directly (persistent, no JTAG loading needed)
 * `--verify`: Verify the loaded firmware against the source file after programming
 * `--force`: Force a full PL reset and UART reconfiguration even if the bitstream hasn't changed
 
-### Monitoring Serial Output
+### Serial Monitoring
 
 Once the dynamic overlay is injected *(Step 3 of the Execution Flow)*, the AXI UART is exposed as `/dev/ttyUL0`. You can connect to it using `picocom` at the default baud rate of 9600:
 
@@ -284,12 +284,10 @@ sudo picocom -b 9600 --imap lfcrlf /dev/ttyUL0
 
 An interactive Jupyter notebook is available at `notebook/xheepNotebook.ipynb`. It provides the same functionality as the CLI but with an interactive widget-based UI, including:
 
-- Bitstream and firmware path configuration
-- One-click initialization and UART setup
-- Interactive serial terminal with start/stop controls
-- Buttons for each execution mode (on-chip, flash load, flash execute)
-- Force reload and verification options
+* Bitstream and firmware path configuration
+* One-click initialization and UART setup
+* Interactive serial terminal with start/stop controls
+* Buttons for each execution mode (on-chip, flash load, flash execute)
+* Force reload and verification options
 
 After running `make install-notebook`, the notebook is available at `~/jupyter_notebooks/xheep/xheepNotebook.ipynb` on the board's Jupyter server.
-
----

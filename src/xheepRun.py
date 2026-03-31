@@ -1,3 +1,9 @@
+# Copyright 2026 Politecnico di Torino.
+#
+# File: xheepRun.py
+# Author: Christian Conti {christian.conti@polito.it}
+# Date: 31/03/2026
+
 import argparse
 import hashlib
 import os

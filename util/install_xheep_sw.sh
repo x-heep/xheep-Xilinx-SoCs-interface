@@ -1,14 +1,11 @@
 #!/bin/bash
 set -euo pipefail
 
-# Sync sw/device/ from the official x-heep repository.
+# Sync sw/device/ from the official x-heep repository
+# {https://github.com/x-heep/x-heep}.
 #
 # This keeps the device library (drivers, BSP, runtime headers) aligned with
-# the upstream x-heep project.  The sync is ADDITIVE: files from x-heep are
-# added or updated, but files that exist in this repo but not in x-heep are
-# left untouched.  This is intentional because several files (crt0.S,
-# vectors.S, core_v_mini_mcu.h, ...) are generated from templates and are
-# committed here for PYNQ-Z2 but are NOT committed in the upstream repo.
+# the upstream x-heep project.
 #
 # Only sw/device/ is touched; the custom sw/Makefile, sw/linker/,
 # sw/applications/, and the FPGA-specific sw/device/lib/runtime/syscalls.c

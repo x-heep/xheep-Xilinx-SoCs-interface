@@ -1,7 +1,6 @@
 #!/bin/bash
 set -euo pipefail
 
-# Remove the embecosm CORE-V RISC-V toolchain installed by install_riscv_toolchain.sh.
 # Removes $HOME/.riscv and cleans up PATH entries in shell rc files.
 # Also removes any legacy /opt installs from older versions of the script.
 

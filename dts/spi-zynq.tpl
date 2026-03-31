@@ -2,11 +2,11 @@
 /plugin/;
 
 /*
- * Copyright 2025 Politecnico di Torino.
+ * Copyright 2026 Politecnico di Torino.
  *
- * File: spi-zynq.dts
- * Author: Christian Conti
- * Date: 31/03/2025
+ * File: spi-ultrascale.dts
+ * Author: Christian Conti {christian.conti@polito.it}
+ * Date: 31/03/2026
  *
  * AXI Quad SPI overlay for Zynq-7000 - SPIDEV version
  * Target: PYNQ-Z2 and similar boards

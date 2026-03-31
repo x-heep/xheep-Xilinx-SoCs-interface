@@ -1,9 +1,22 @@
-# RISC-V toolchain — CORE-V GCC, the same toolchain used by x-heep.
-# Installed by util/install_riscv_toolchain.sh to $HOME/.riscv.
-# Override the path with:  make RISCV=/path/to/toolchain
+# Copyright 2019 Clifford Wolf
+# Copyright 2019 Robert Balas
+# Copyright 2022 Jose Miranda
+# Copyright 2023 Juan Sapriza
 #
-# riscv-gnu-toolchain may produce either riscv32-corev-elf-gcc (CORE-V patched)
-# or riscv32-unknown-elf-gcc (default vendor). We detect which is present.
+# Permission to use, copy, modify, and/or distribute this software for any
+# purpose with or without fee is hereby granted, provided that the above
+# copyright notice and this permission notice appear in all copies.
+#
+# THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH
+# REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
+# AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT,
+# INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
+# LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
+# OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+# PERFORMANCE OF THIS SOFTWARE.
+
+# Author: Jose Miranda, Juan Sapriza (jose.mirandacalero / juan.sapriza @epfl.ch)
+
 RISCV     ?= $(HOME)/.riscv
 ARCH      ?= rv32imc_zicsr
 ABI       ?= ilp32
@@ -24,6 +37,9 @@ $(error device library not found at '$(XHEEP_SW)/device')
 endif
 
 APP    ?= hello_world
+# RISC-V toolchain — CORE-V GCC, the same toolchain used by x-heep.
+# Installed by util/install_riscv_toolchain.sh to $HOME/.riscv.
+# Override the path with:  make RISCV=/path/to/toolchain
 LINKER ?= on_chip
 TARGET ?= pynq-z2
 

@@ -2,15 +2,15 @@
 set -euo pipefail
 
 # Download and install the CORE-V RISC-V toolchain for X-HEEP
-# from the riscv-Xilinx-SoCs-toolchain GitHub release.
+# from the riscv-Xilinx-SoCs-toolchain GitHub release
+# {https://github.com/vlsi-lab/riscv-Xilinx-SoCs-toolchain}.
+#
 # This is the same toolchain used by x-heep (riscv32-corev-elf-gcc /
 # riscv32-unknown-elf-gcc depending on how riscv-gnu-toolchain was configured).
 # Skips installation if already present.
 #
 # The toolchain is installed to $HOME/.riscv, matching x-heep's convention.
 # The sw/Makefile defaults to RISCV=$(HOME)/.riscv and will find it there.
-#
-# Usage: install_riscv_toolchain.sh
 
 TOOLCHAIN_REPO="Christian-Conti/riscv-Xilinx-SoCs-toolchain"
 INSTALL_DIR="${HOME}/.riscv"

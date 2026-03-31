@@ -1,3 +1,9 @@
+# Copyright 2026 Politecnico di Torino.
+#
+# File: xheepDriver.py
+# Author: Christian Conti {christian.conti@polito.it}
+# Date: 31/03/2026
+
 from pathlib import Path
 import os
 import sys

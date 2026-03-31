@@ -1,7 +1,7 @@
 set -euo pipefail
 
 # Install Python packages listed in util/python-requirements.txt,
-# skipping any package that is already installed.
+# in the `pynq-venv` skipping any package that is already installed.
 
 REQ="$(cd "$(dirname "$0")" && pwd)/python-requirements.txt"
 

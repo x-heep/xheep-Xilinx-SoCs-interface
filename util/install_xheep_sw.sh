@@ -11,10 +11,11 @@ set -euo pipefail
 # sw/applications/, and the FPGA-specific sw/device/lib/runtime/syscalls.c
 # are left untouched.
 #
-GITHUB_REQ="$(cd "$(dirname \"$0\")" && pwd)/github-requirements.txt"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# Robustly resolve path to github-requirements.txt relative to this script
+GITHUB_REQ="$SCRIPT_DIR/github-requirements.txt"
 # Extract x-heep repo from github-requirements.txt
 XHEEP_REPO=$(awk '/x-heep\/x-heep/ {print $1}' "$GITHUB_REQ")
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 SW_DIR="$(cd "$SCRIPT_DIR/../sw" && pwd)"
 DEVICE_DIR="$SW_DIR/device"
 

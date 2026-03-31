@@ -12,7 +12,8 @@ set -euo pipefail
 # The toolchain is installed to $HOME/.riscv, matching x-heep's convention.
 # The sw/Makefile defaults to RISCV=$(HOME)/.riscv and will find it there.
 
-GITHUB_REQ="$(cd "$(dirname \"$0\")" && pwd)/github-requirements.txt"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+GITHUB_REQ="$SCRIPT_DIR/github-requirements.txt"
 # Extract toolchain repo from github-requirements.txt
 TOOLCHAIN_REPO=$(awk -F/ '/vlsi-lab\/riscv-Xilinx-SoCs-toolchain/ {gsub(/.git$/, "", $5"/"$6); print $5"/"$6}' "$GITHUB_REQ")
 INSTALL_DIR="${HOME}/.riscv"

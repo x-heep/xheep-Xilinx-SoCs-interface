@@ -44,6 +44,3 @@ for SYMLINK in "${LEGACY_SYMLINKS[@]}"; do
         sudo rm -f "$SYMLINK"
     fi
 done
-
-echo ""
-echo "CORE-V RISC-V toolchain uninstalled."

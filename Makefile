@@ -107,11 +107,11 @@ app:
 	@rm -rf sw/build/$(PROJECT)
 	@$(MAKE) -C sw PROJECT=$(PROJECT) LINKER=$(LINKER) TARGET=$(BOARD) FLAVOR=$(FLAVOR)
 
+## @section Cleanup
+
 ## Clean application build artefacts
 app-clean:
 	@$(MAKE) -C sw clean
-
-## @section Cleanup
 
 ## Clean all build artifacts
 clean: app-clean

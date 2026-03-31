@@ -12,7 +12,7 @@ set -euo pipefail
 # The toolchain is installed to $HOME/.riscv, matching x-heep's convention.
 # The sw/Makefile defaults to RISCV=$(HOME)/.riscv and will find it there.
 
-TOOLCHAIN_REPO="Christian-Conti/riscv-Xilinx-SoCs-toolchain"
+TOOLCHAIN_REPO="vlsi-lab/riscv-Xilinx-SoCs-toolchain"
 INSTALL_DIR="${HOME}/.riscv"
 
 # Detect host architecture

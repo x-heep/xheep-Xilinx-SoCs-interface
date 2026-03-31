@@ -70,7 +70,7 @@ During installation, the script automatically:
 To install the Jupyter notebook interface to the board's default notebook directory:
 
 ```bash
-sudo make install-notebook
+make install-notebook
 ```
 
 This copies all necessary files (notebook, drivers, config, DTS templates) to `~/jupyter_notebooks/xheep`. The target user can be customized with `USER=<username>`.

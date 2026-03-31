@@ -79,7 +79,7 @@ install-notebook:
 	@mkdir -p $(NOTEBOOK_DIR)/dts
 	@cp notebook/xheepNotebook.ipynb $(NOTEBOOK_DIR)/
 	@cp notebook/notebookUtils.py $(NOTEBOOK_DIR)/
-	@cp src/xheepDriver.py $(NOTEBOOK_DIR)/src/
+	@cp -r src/xheepDriver $(NOTEBOOK_DIR)/src/
 	@cp src/xheepRun.py $(NOTEBOOK_DIR)/src/
 	@cp cfg/xheep_xilinx_xvc.cfg $(NOTEBOOK_DIR)/cfg/
 	@cp dts/*.tpl $(NOTEBOOK_DIR)/dts/

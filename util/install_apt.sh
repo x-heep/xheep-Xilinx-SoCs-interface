@@ -1,4 +1,3 @@
-# This script can be extended to use util/github-requirements.txt for custom apt installs if needed.
 set -euo pipefail
 
 # Install apt packages listed in util/apt-requirements.txt,

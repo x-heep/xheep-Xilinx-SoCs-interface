@@ -6,7 +6,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 OPENOCD_DIR="/usr/local/src/openocd"
-PATCH_SCRIPT="$ROOT_DIR/scripts/install_openocd.sh"
+PATCH_SCRIPT="$ROOT_DIR/util/install_openocd.sh"
 
 if [ ! -x "$PATCH_SCRIPT" ]; then
   echo "Making $PATCH_SCRIPT executable"

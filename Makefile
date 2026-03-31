@@ -36,7 +36,7 @@ TARGET  := sw/build/$(PROJECT)/$(PROJECT).elf
 
 .PHONY: help install install-notebook uninstall uninstall-notebook run app app-clean clean
 
-# help target (documented in MakefileHelp script)
+# help target prints this file with comments as descriptions for each target
 help:
 	@FILE_FOR_HELP=Makefile util/MakefileHelp
 

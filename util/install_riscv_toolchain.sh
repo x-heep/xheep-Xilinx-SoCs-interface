@@ -14,8 +14,9 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 GITHUB_REQ="$SCRIPT_DIR/github-requirements.txt"
-# Extract toolchain repo from github-requirements.txt
-TOOLCHAIN_REPO=$(awk -F/ '/vlsi-lab\/riscv-Xilinx-SoCs-toolchain/ {gsub(/.git$/, "", $5"/"$6); print $5"/"$6}' "$GITHUB_REQ")
+TOOLCHAIN_REPO=$(awk '/vlsi-lab\/riscv-Xilinx-SoCs-toolchain/ {match($1, /github.com\/([^/]+\/[^.]+)(.git)?/, m); print m[1]}' "$GITHUB_REQ")
+# Optionally extract checkout (not used in this script, but available)
+TOOLCHAIN_CHECKOUT=$(awk '/vlsi-lab\/riscv-Xilinx-SoCs-toolchain/ {print $2}' "$GITHUB_REQ")
 INSTALL_DIR="${HOME}/.riscv"
 
 # Detect host architecture

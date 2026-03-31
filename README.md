@@ -45,6 +45,8 @@ sudo make install
 
 > **Note:** This requires `sudo` privileges to manage system packages, install OpenOCD, and manipulate the kernel's ConfigFS.
 
+> **Warning:** `make install` performs large downloads and compilation (cloning OpenOCD, building OpenOCD and the RISC-V toolchain, etc.). Depending on your network and CPU it can take a long time — plan for tens of minutes or more.
+
 ### OpenOCD Build and Patch
 
 During installation, the script automatically:

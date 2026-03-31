@@ -76,12 +76,18 @@ This copies all necessary files (notebook, drivers, config, DTS templates) to `~
 - `picocom` — serial terminal for UART monitoring
 - `jdupes` — hardlink deduplication across toolchain flavors to reduce disk usage
 
-### RISC-V CoreV Toolchain
-`make install` automatically downloads and installs the **embecosm CORE-V RISC-V toolchain** (`riscv32-corev-elf-gcc`) from the
-[riscv-Xilinx-SoCs-toolchain](https://github.com/Christian-Conti/riscv-Xilinx-SoCs-toolchain)
-GitHub releases. This is the same toolchain used by x-heep, cross-compiled for ARM hosts (armhf/aarch64).
 
-The toolchain is installed to `$HOME/.riscv`, matching x-heep's convention:
+### RISC-V Toolchain
+
+The RISC-V toolchain used in this repository is available at: [https://github.com/vlsi-lab/riscv-Xilinx-SoCs-toolchain](https://github.com/vlsi-lab/riscv-Xilinx-SoCs-toolchain)
+
+**Key points:**
+- The toolchain is fragmented into different flavors, depending on the target ISA to reduce its size.
+- It is updated at the beginning of each month to provide the latest features and fixes.
+- The toolchain is installed to `$HOME/.riscv`, matching x-heep's convention.
+
+`make install` automatically downloads and installs the appropriate toolchain flavor for your platform. 
+This is the same toolchain used by x-heep, cross-compiled for ARM hosts (armhf/aarch64).
 
 | Binary | Install path | `-march` | `-mabi` |
 |---|---|---|---|

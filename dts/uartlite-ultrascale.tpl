@@ -1,6 +1,20 @@
 /dts-v1/;
 /plugin/;
 
+/*
+ * Copyright 2025 Politecnico di Torino.
+ *
+ * File: uartlite-ultrascale.dts
+ * Author: Christian Conti
+ * Date: 31/03/2025
+ *
+ * AXI UARTLite overlay for ZynqMP (UltraScale+)
+ * Target: AUP-ZU3 and similar boards
+ *
+ * Placeholders:
+ *   ######## -> UARTLite base address (es. 43c00000)
+ */
+
 / {
   fragment@0 {
     target-path = "/axi";

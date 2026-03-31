@@ -2,6 +2,12 @@
 /plugin/;
 
 /*
+ * Copyright 2025 Politecnico di Torino.
+ *
+ * File: spi-ultrascale.dts
+ * Author: Christian Conti
+ * Date: 31/03/2025
+ *
  * AXI Quad SPI overlay for ZynqMP (UltraScale+) - SPIDEV version
  * Target: AUP-ZU3 and similar boards
  *

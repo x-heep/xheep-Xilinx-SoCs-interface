@@ -59,6 +59,10 @@ install:
 uninstall:
 	@sudo -v || (echo "sudo is required. Run 'sudo -v' to cache credentials and retry." && exit 1)
 	@bash util/uninstall_riscv_toolchain.sh
+	@sudo rm -rf /usr/local/src/openocd
+	@sudo rm -f /usr/local/bin/openocd
+	@sudo sed -i '/source \/etc\/profile.d\/pynq_venv.sh/d' /root/.bashrc
+	@sudo sed -i '/cd \/home\/xilinx/d' /root/.bashrc
 
 ## Uninstall notebook files from jupyter_notebooks directory
 ## @param USER=xilinx(default) Username for jupyter installation path

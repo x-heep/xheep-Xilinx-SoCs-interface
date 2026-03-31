@@ -6,7 +6,9 @@ set -euo pipefail
 #
 # Usage: ./install_openocd.sh [target_dir]
 
-GITHUB_REQ="$(cd "$(dirname \"$0\")/../util" && pwd)/github-requirements.txt"
+# Robustly resolve path to github-requirements.txt relative to this script
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+GITHUB_REQ="$SCRIPT_DIR/github-requirements.txt"
 # Extract OpenOCD repo and commit from github-requirements.txt
 REPO_URL=$(awk '/openocd-org\/openocd/ {print $1}' "$GITHUB_REQ")
 TAG=$(awk '/openocd-org\/openocd/ {print $2}' "$GITHUB_REQ")

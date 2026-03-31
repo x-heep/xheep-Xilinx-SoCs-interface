@@ -6,7 +6,18 @@ set -euo pipefail
 
 REQ="$(cd "$(dirname "$0")" && pwd)/python-requirements.txt"
 
-source /etc/profile.d/pynq_venv.sh
+
+# Ensure we are in the correct venv (pynq-venv)
+if [ -f /etc/profile.d/pynq_venv.sh ]; then
+  source /etc/profile.d/pynq_venv.sh
+else
+  echo "Error: /etc/profile.d/pynq_venv.sh not found. Aborting installation." >&2
+  exit 1
+fi
+if [ -z "${VIRTUAL_ENV:-}" ] || [[ "$VIRTUAL_ENV" != *pynq-venv* ]]; then
+  echo "Error: pynq-venv is not active. Aborting installation." >&2
+  exit 1
+fi
 
 MISSING=()
 while IFS= read -r pkg || [ -n "$pkg" ]; do

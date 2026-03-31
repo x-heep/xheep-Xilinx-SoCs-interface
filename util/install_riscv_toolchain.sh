@@ -3,14 +3,14 @@ set -euo pipefail
 
 # Download and install the CORE-V RISC-V toolchain for X-HEEP
 # from the riscv-Xilinx-SoCs-toolchain GitHub release
-# {https://github.com/vlsi-lab/riscv-Xilinx-SoCs-toolchain}.
+# {https://github.com/vlsi-lab/riscv-Xilinx-SoCs-toolchain}
 #
 # This is the same toolchain used by x-heep (riscv32-corev-elf-gcc /
-# riscv32-unknown-elf-gcc depending on how riscv-gnu-toolchain was configured).
-# Skips installation if already present.
+# riscv32-unknown-elf-gcc depending on how riscv-gnu-toolchain was configured)
+# Skips installation if already present
 #
-# The toolchain is installed to $HOME/.riscv, matching x-heep's convention.
-# The sw/Makefile defaults to RISCV=$(HOME)/.riscv and will find it there.
+# The toolchain is installed to $HOME/.riscv, matching x-heep's convention
+# The sw/Makefile defaults to RISCV=$(HOME)/.riscv and will find it there
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 GITHUB_REQ="$SCRIPT_DIR/github-requirements.txt"
@@ -33,7 +33,7 @@ esac
 echo "Detected host architecture: ${ARCH_LABEL}"
 
 # Locate the GCC binary — riscv-gnu-toolchain may produce either
-# riscv32-corev-elf-gcc (CORE-V patched) or riscv32-unknown-elf-gcc (default).
+# riscv32-corev-elf-gcc (CORE-V patched) or riscv32-unknown-elf-gcc (default)
 find_gcc() {
   local dir="$1"
   for name in riscv32-corev-elf-gcc riscv32-unknown-elf-gcc; do
@@ -57,10 +57,10 @@ echo "Fetching latest release info from ${TOOLCHAIN_REPO}..."
 LATEST_API="https://api.github.com/repos/${TOOLCHAIN_REPO}/releases/latest"
 RELEASE_JSON=$(curl -fsSL "$LATEST_API")
 
-# rv32i-imac provides plain rv32imc multilibs (no xcv).
+# rv32i-imac provides plain rv32imc multilibs (no xcv)
 # xheep-base only has xcv multilibs; with -march=rv32imc_zicsr the linker would
 # fall back to an xcv-flavoured libc which may behave differently or have bugs
-# in the development branch. rv32i-imac is the correct match.
+# in the development branch. rv32i-imac is the correct match
 ASSET_PREFIX="riscv-toolchain-${ARCH_LABEL}-rv32i-imac-"
 
 ASSET_URL=$(echo "$RELEASE_JSON" | python3 -c "
@@ -113,4 +113,4 @@ done
 
 echo ""
 echo "CORE-V RISC-V toolchain installed at ${INSTALL_DIR}"
-echo "Re-source your shell or open a new terminal to pick up the updated PATH."
+echo "Re-source your shell or open a new terminal to pick up the updated PATH..."

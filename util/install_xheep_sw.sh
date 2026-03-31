@@ -5,7 +5,7 @@ set -euo pipefail
 # {https://github.com/x-heep/x-heep}.
 #
 # This keeps the device library (drivers, BSP, runtime headers) aligned with
-# the upstream x-heep project.
+# the upstream x-heep project
 #
 # Only sw/device/ is touched; the custom sw/Makefile, sw/linker/,
 # sw/applications/, and the FPGA-specific sw/device/lib/runtime/syscalls.c
@@ -36,11 +36,9 @@ cd "$TMP/x-heep"
 git sparse-checkout set sw/device
 
 echo "Syncing sw/device/ from x-heep..."
-# No --delete: files not present in x-heep (generated files like crt0.S,
-# vectors.S, core_v_mini_mcu.h that are committed here but not upstream)
-# must be preserved.
+# No --delete: files not present in x-heep must be preserved
 # --exclude the pynq-z2 target so we never overwrite the board-specific
-# x-heep.h (safety net for future divergence).
+# x-heep.h
 rsync -a \
     --exclude='target/pynq-z2/' \
     "$TMP/x-heep/sw/device/" \
@@ -53,7 +51,7 @@ if [ -d "$TMP/x-heep/sw/device/target/pynq-z2" ]; then
         "$DEVICE_DIR/target/pynq-z2/"
 fi
 
-# Restore the FPGA-specific syscalls.c (picolibc-compatible, lazy uart init)
+# Restore the FPGA-specific syscalls.c
 if [ "$RESTORE_SYSCALLS" -eq 1 ]; then
     cp "$SYSCALLS_BACKUP" "$DEVICE_DIR/lib/runtime/syscalls.c"
     echo "Restored custom syscalls.c"

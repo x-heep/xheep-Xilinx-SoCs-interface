@@ -1,7 +1,7 @@
 set -euo pipefail
 
 # Install apt packages listed in util/apt-requirements.txt,
-# skipping any package that is already correctly installed.
+# skipping any package that is already correctly installed
 
 REQ="$(cd "$(dirname "$0")" && pwd)/apt-requirements.txt"
 if [ ! -f "$REQ" ]; then

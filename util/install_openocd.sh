@@ -2,7 +2,7 @@ set -euo pipefail
 
 # Script to fetch, patch, build and install OpenOCD v0.12.0
 # Skips the build if the binary at /usr/local/bin/openocd was already built
-# from the expected commit.
+# from the expected commit
 #
 # Usage: ./install_openocd.sh [target_dir]
 
@@ -18,7 +18,6 @@ OPENOCD_BIN="/usr/local/bin/openocd"
 
 echo "OpenOCD target: ${TARGET_DIR} (repo: $REPO_URL, commit: $TAG)"
 
-# ── Skip if already installed at the expected commit ─────────────────────────
 if [ -f "$OPENOCD_BIN" ] && [ -d "${TARGET_DIR}/.git" ]; then
   INSTALLED_COMMIT="$(cd "${TARGET_DIR}" && git rev-parse HEAD 2>/dev/null || true)"
   if [ "$INSTALLED_COMMIT" = "$TAG" ]; then
@@ -29,7 +28,6 @@ if [ -f "$OPENOCD_BIN" ] && [ -d "${TARGET_DIR}/.git" ]; then
   fi
 fi
 
-# ── Clone or reuse existing directory ────────────────────────────────────────
 if [ -d "${TARGET_DIR}/.git" ]; then
   echo "Repository already exists at ${TARGET_DIR}, fetching tags."
   cd "${TARGET_DIR}"
@@ -48,7 +46,7 @@ echo "Applying patch: ${PATCH_PATH}"
 patch -p1 --no-backup-if-mismatch --force < "${PATCH_PATH}" >/dev/null 2>&1 || true
 
 git add -A || true
-# Set local git identity if not already set (for patch commit)
+# Set local git identity if not already set 
 if ! git config user.email >/dev/null; then
   git config user.email "x-heep@localhost"
 fi
@@ -71,4 +69,4 @@ make -j"$(nproc)"
 sudo make install
 make clean
 
-echo "OpenOCD ${TAG} installed."
+echo "OpenOCD ${TAG} installed..."

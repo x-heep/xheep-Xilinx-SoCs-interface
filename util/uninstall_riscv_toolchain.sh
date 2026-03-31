@@ -1,9 +1,8 @@
-# This script can be extended to use util/github-requirements.txt for custom uninstall logic if needed.
 #!/bin/bash
 set -euo pipefail
 
-# Removes $HOME/.riscv and cleans up PATH entries in shell rc files.
-# Also removes any legacy /opt installs from older versions of the script.
+# Removes $HOME/.riscv and cleans up PATH entries in shell rc files
+# Also removes any legacy /opt installs from older versions of the script
 
 INSTALL_DIR="${HOME}/.riscv"
 

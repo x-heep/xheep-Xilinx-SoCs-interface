@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # Install Python packages listed in util/python-requirements.txt,
-# in the `pynq-venv` skipping any package that is already installed.
+# in the `pynq-venv` skipping any package that is already installed
 
 REQ="$(cd "$(dirname "$0")" && pwd)/python-requirements.txt"
 
@@ -33,9 +33,9 @@ while IFS= read -r pkg || [ -n "$pkg" ]; do
 done < "$REQ"
 
 if [ "${#MISSING[@]}" -eq 0 ]; then
-  echo "All Python packages already installed — nothing to do."
+  echo "All Python packages already installed — nothing to do..."
 else
   echo "Installing: ${MISSING[*]}"
   pip install "${MISSING[@]}"
-  echo "Python packages installed."
+  echo "Python packages installed..."
 fi

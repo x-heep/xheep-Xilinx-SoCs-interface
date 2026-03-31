@@ -6,13 +6,15 @@ set -euo pipefail
 #
 # Usage: ./install_openocd.sh [target_dir]
 
-REPO_URL="https://github.com/openocd-org/openocd.git"
-TAG="b9e40161613fd880fc85fdb357365b70e646ff23"
+GITHUB_REQ="$(cd "$(dirname \"$0\")/../util" && pwd)/github-requirements.txt"
+# Extract OpenOCD repo and commit from github-requirements.txt
+REPO_URL=$(awk '/openocd-org\/openocd/ {print $1}' "$GITHUB_REQ")
+TAG=$(awk '/openocd-org\/openocd/ {print $2}' "$GITHUB_REQ")
 PATCH_PATH="$(cd "$(dirname "$0")/.." && pwd)/patch/openocd.patch"
 TARGET_DIR="${1:-/usr/local/src/openocd}"
 OPENOCD_BIN="/usr/local/bin/openocd"
 
-echo "OpenOCD target: ${TARGET_DIR}"
+echo "OpenOCD target: ${TARGET_DIR} (repo: $REPO_URL, commit: $TAG)"
 
 # ── Skip if already installed at the expected commit ─────────────────────────
 if [ -f "$OPENOCD_BIN" ] && [ -d "${TARGET_DIR}/.git" ]; then

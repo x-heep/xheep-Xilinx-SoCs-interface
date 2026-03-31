@@ -11,10 +11,9 @@ set -euo pipefail
 # sw/applications/, and the FPGA-specific sw/device/lib/runtime/syscalls.c
 # are left untouched.
 #
-# Usage: install_xheep_sw.sh [XHEEP_REPO_URL]
-#   Default URL: https://github.com/x-heep/x-heep
-
-XHEEP_REPO="${1:-https://github.com/x-heep/x-heep}"
+GITHUB_REQ="$(cd "$(dirname \"$0\")" && pwd)/github-requirements.txt"
+# Extract x-heep repo from github-requirements.txt
+XHEEP_REPO=$(awk '/x-heep\/x-heep/ {print $1}' "$GITHUB_REQ")
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 SW_DIR="$(cd "$SCRIPT_DIR/../sw" && pwd)"
 DEVICE_DIR="$SW_DIR/device"

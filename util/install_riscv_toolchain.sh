@@ -12,7 +12,9 @@ set -euo pipefail
 # The toolchain is installed to $HOME/.riscv, matching x-heep's convention.
 # The sw/Makefile defaults to RISCV=$(HOME)/.riscv and will find it there.
 
-TOOLCHAIN_REPO="vlsi-lab/riscv-Xilinx-SoCs-toolchain"
+GITHUB_REQ="$(cd "$(dirname \"$0\")" && pwd)/github-requirements.txt"
+# Extract toolchain repo from github-requirements.txt
+TOOLCHAIN_REPO=$(awk -F/ '/vlsi-lab\/riscv-Xilinx-SoCs-toolchain/ {gsub(/.git$/, "", $5"/"$6); print $5"/"$6}' "$GITHUB_REQ")
 INSTALL_DIR="${HOME}/.riscv"
 
 # Detect host architecture
@@ -54,7 +56,7 @@ echo "Fetching latest release info from ${TOOLCHAIN_REPO}..."
 LATEST_API="https://api.github.com/repos/${TOOLCHAIN_REPO}/releases/latest"
 RELEASE_JSON=$(curl -fsSL "$LATEST_API")
 
-# rv32i-imac provides plain rv32imc multilibs (no xcv) — same as embecosm's libc.
+# rv32i-imac provides plain rv32imc multilibs (no xcv).
 # xheep-base only has xcv multilibs; with -march=rv32imc_zicsr the linker would
 # fall back to an xcv-flavoured libc which may behave differently or have bugs
 # in the development branch. rv32i-imac is the correct match.

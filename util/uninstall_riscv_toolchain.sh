@@ -1,3 +1,4 @@
+# This script can be extended to use util/github-requirements.txt for custom uninstall logic if needed.
 #!/bin/bash
 set -euo pipefail
 

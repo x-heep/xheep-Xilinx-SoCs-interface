@@ -1,3 +1,4 @@
+# This script can be extended to use util/github-requirements.txt for custom git installs if needed.
 set -euo pipefail
 
 # Clone, patch, build and install OpenOCD v0.12.0

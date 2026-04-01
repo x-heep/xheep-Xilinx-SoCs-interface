@@ -54,6 +54,9 @@ install:
 	@bash util/install_riscv_toolchain.sh $(FLAVOR)
 	@BOARD=$(BOARD) bash util/install_xheep_sw.sh
 	@sudo bash util/config_bashrc.sh
+	@OWNER_USER=$${SUDO_USER:-$$USER}; \
+	OWNER_GROUP=$$(id -gn "$$OWNER_USER" 2>/dev/null || echo "$$OWNER_USER"); \
+	sudo chown -R "$$OWNER_USER":"$$OWNER_GROUP" "$(ROOT)"; \
 
 ## Uninstall toolchain and remove PATH entries from shell profiles
 uninstall:
@@ -92,7 +95,7 @@ install-notebook:
 ## @param LINKER=on_chip      	  			Execution mode: on_chip, flash_load, flash_exec
 ## @param OVERLAY=/path/to/bitstream.bit    Path to FPGA bitstream
 run:
-	@python3 src/xheepRun.py -o $(OVERLAY) -f $(TARGET) -m $(LINKER)
+	@python3 src/xheepRun.py -o $(OVERLAY) -f $(TARGET) -l $(LINKER)
 
 ## @section Application Build
 

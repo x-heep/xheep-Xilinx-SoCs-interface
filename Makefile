@@ -30,6 +30,7 @@ BOARD     ?= pynq-z2
 PROJECT   ?= hello_world
 OVERLAY   ?= xilinx_core_v_mini_mcu_wrapper.bit
 FLAVOR    ?= base
+BOARD_LC  := $(shell echo "$(BOARD)" | tr '[:upper:]' '[:lower:]')
 
 # Derived path to firmware (used by 'make run')
 TARGET  := sw/build/$(PROJECT)/$(PROJECT).elf
@@ -45,12 +46,13 @@ help:
 ## Install dependencies, the selected toolchain flavor(s), and sync sw/device from x-heep
 ## Requires sudo privileges to manage system packages and ConfigFS
 ## @param FLAVOR=base         				Toolchain flavor(s) to install: base, float, zfinx, all
+## @param BOARD=pynq-z2       				Board target synced from x-heep: pynq-z2, aup-zu3
 install:
 	@sudo -v || (echo "sudo is required. Run 'sudo -v' to cache credentials and retry." && exit 1)
 	@sudo bash util/install_apt.sh
 	@sudo bash util/install_openocd.sh
 	@bash util/install_riscv_toolchain.sh $(FLAVOR)
-	@bash util/install_xheep_sw.sh
+	@BOARD=$(BOARD) bash util/install_xheep_sw.sh
 	@sudo bash util/config_bashrc.sh
 
 ## Uninstall toolchain and remove PATH entries from shell profiles
@@ -99,11 +101,10 @@ run:
 ## Always removes any previous build of the same PROJECT before recompiling.
 ## @param PROJECT=hello_world     			Application folder under sw/applications/
 ## @param LINKER=on_chip      				Linker mode: on_chip, flash_load, flash_exec
-## @param BOARD=pynq-z2       				Target board: pynq-z2, aup-zu3
 ## @param FLAVOR=base         				Toolchain flavor: base (rv32imc), float (rv32imfc), zfinx (rv32imc_zfinx)
 app:
 	@rm -rf sw/build/$(PROJECT)
-	@$(MAKE) -C sw PROJECT=$(PROJECT) LINKER=$(LINKER) TARGET=$(BOARD) FLAVOR=$(FLAVOR)
+	@$(MAKE) -C sw PROJECT=$(PROJECT) LINKER=$(LINKER) TARGET=$(BOARD_LC) FLAVOR=$(FLAVOR)
 
 ## @section Cleanup
 

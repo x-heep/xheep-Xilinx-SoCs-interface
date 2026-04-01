@@ -64,7 +64,7 @@ fi
 git sparse-checkout set sw
 
 echo "Collecting local sw custom files to preserve (excluding syscalls.c)..."
-diff -qr "$TMP/x-heep/sw" "$SW_DIR" | awk -v sw="$SW_DIR" '
+(diff -qr "$TMP/x-heep/sw" "$SW_DIR" || true) | awk -v sw="$SW_DIR" '
 /^Files / && / differ$/ {
     b=$4
     if (index(b, sw"/")==1) { sub(sw"/", "", b); print b }

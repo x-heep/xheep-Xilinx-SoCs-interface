@@ -47,13 +47,10 @@ This script installs system dependencies, builds OpenOCD with specific patches, 
 make install
 ```
 
-> **Note:** The `install` target already invokes `sudo` internally only where needed.
-> Run `make install` as your normal user to avoid root-owned files in the repository.
-
-> **Tip:** To work directly in the configured root environment, run `sudo -i`.
+> **Note:** To work directly in the configured root environment, run `sudo -i`.
 >          The shell is configured to automatically source the PYNQ virtual environment and place you in `/home/xilinx`.
 
-> **Warning:** `make install` performs large downloads and compilation (cloning OpenOCD, building OpenOCD and the RISC-V toolchain, etc.). 
+> **Warning:** `make install` performs large downloads and compilation (cloning and building OpenOCD, etc.). 
 >              Depending on your network and CPU it can take a long time.
 >              It's recommended to run `make install` inside a `tmux` session so the long-running process continues if your SSH session disconnects.
 
@@ -81,7 +78,8 @@ To install the Jupyter notebook interface to the board's default notebook direct
 make install-notebook
 ```
 
-This copies all necessary files (notebook, drivers, config, DTS templates) to `~/jupyter_notebooks/xheep`. The target user can be customized with `USER=<username>`.
+This copies all necessary files (notebook, drivers, config, DTS templates) to `~/jupyter_notebooks/xheep`. 
+The target user can be customized with `USER=<username>`.
 
 ---
 
@@ -90,29 +88,6 @@ This copies all necessary files (notebook, drivers, config, DTS templates) to `~
 ### System Packages
 * `device-tree-compiler` — compiles `.dts` templates into `.dtbo` binaries.
 * `picocom` — serial terminal for UART monitoring.
-* `jdupes` — hardlink deduplication across toolchain flavors to reduce disk usage.
-
-### RISC-V Toolchain
-
-The RISC-V toolchain used in this repository is available at: [https://github.com/vlsi-lab/riscv-Xilinx-SoCs-toolchain.git](https://github.com/vlsi-lab/riscv-Xilinx-SoCs-toolchain.git)
-
-**Key Points:**
-* The toolchain is fragmented into different flavors depending on the target ISA to reduce its size.
-* It is updated at the beginning of each month to provide the latest features and fixes.
-* The toolchain is installed to `$HOME/.riscv`, matching x-heep's convention.
-
-**Flavor Quick Reference:**
-* `base` — Integer-only baseline toolchain (`rv32imc` / `ilp32`) for standard embedded builds.
-* `float` — Floating-point flavor (`rv32imfc` / `ilp32f`) for applications that use hardware FP.
-* `zfinx` — Zfinx flavor (`rv32imc_zfinx` / `ilp32`) for cores using integer register file FP (`Zfinx`).
-
-`make install` automatically downloads and installs the appropriate toolchain flavor for your platform. This is the same toolchain used by x-heep, cross-compiled for ARM hosts (armhf/aarch64).
-
-| Binary | Install Path | `-march` | `-mabi` |
-|---|---|---|---|
-| `riscv32-unknown-elf-gcc` | `$HOME/.riscv/bin/` | `rv32imc_zicsr` | `ilp32` |
-
-> **Note:** The CI uses the `rv32i-imac` flavor which provides plain rv32imc multilibs (no xcv in libc) — matching embecosm's behavior. The compiler itself still supports CORE-V xcv extensions.
 
 ### Python Packages
 * [`pynq`](https://github.com/Xilinx/PYNQ) — FPGA bitstream management and MMIO access. **(Required)**
@@ -180,7 +155,7 @@ The `xheepGPIO` class manages the following control signals via the `axi_gpio` I
 
 | Bit / Channel | Signal                  | Description                                           |
 | ------------- | ----------------------- | ----------------------------------------------------- |
-| Bit 0         | `rst_ni`                | Active-low reset for the x-heep core                 |
+| Bit 0         | `rst_ni`                | Active-low reset for the x-heep core                  |
 | Bit 1         | `boot_select_i`         | Selects JTAG (0) or Flash (1) boot mode               |
 | Bit 2         | `execute_from_flash_i`  | Enables direct execution from Flash memory            |
 | Bit 3         | `jtag_trst_ni`          | Active-low reset for the JTAG TAP controller          |
@@ -194,16 +169,12 @@ The `xheepGPIO` class manages the following control signals via the `axi_gpio` I
 ### Makefile Commands
 
 ```bash
-make install               # Install dependencies, toolchain, and sync sw/device from x-heep
-make uninstall             # Remove the toolchain and clean PATH entries (requires sudo)
+make install               # Install dependencies and OpenOCD
+make uninstall             # Remove OpenOCD and shell hooks (requires sudo)
 make install-notebook      # Install Jupyter notebook interface to ~/jupyter_notebooks/xheep
 make uninstall-notebook    # Remove the Jupyter notebook interface
-make app                   # Compile hello_world for on-chip execution
-make app APP=my_app        # Compile a custom application
-make app APP=my_app LINKER=flash_load   # Compile for flash boot
-make app APP=my_app BOARD=aup-zu3       # Compile for a different board
 make run                   # Run with default parameters
-make run LINKER=flash_load OVERLAY=xilinx_core_v_mini_mcu_wrapper.bit
+make run APP=path/to/firmware.elf LINKER=flash_load OVERLAY=xilinx_core_v_mini_mcu_wrapper.bit
 make help                  # Show all available targets and parameters
 ```
 
@@ -212,63 +183,9 @@ make help                  # Show all available targets and parameters
 | Variable    | Default                                   | Description                                                      |
 | ----------- | ----------------------------------------- | ---------------------------------------------------------------- |
 | `OVERLAY`   | `xilinx_core_v_mini_mcu_wrapper.bit`      | Path to the FPGA bitstream                                       |
+| `APP`       | *(empty)*                                 | Path to the firmware image (`.elf` or `.bin`)                    |
 | `LINKER`    | `on_chip`                                 | Execution mode: `on_chip`, `flash_load`, `flash_exec`            |
 | `USER`      | `xilinx`                                  | Username for notebook installation path                          |
-| `APP`       | `hello_world`                             | Application name (folder under `sw/applications/`)               |
-| `BOARD`     | `pynq-z2`                                 | Target board: `pynq-z2`, `aup-zu3`                               |
-
-### Building Applications
-
-Applications live under `sw/applications/<app_name>/main.c`.
-The build system uses `riscv32-unknown-elf-gcc` (CORE-V toolchain) to compile for the CV32E40P core and produces both a `.elf` and a flat `.bin` image in `sw/build/<app_name>/`.
-
-```bash
-# Build hello_world (on-chip execution, PYNQ-Z2 clock/UART settings)
-# No external dependencies needed — device library is bundled in sw/device/
-make app
-
-# Build a custom application
-make app APP=my_app
-
-# Build for flash boot
-make app APP=my_app LINKER=flash_load
-
-# Build for a different board
-make app APP=my_app BOARD=aup-zu3
-
-# Run immediately after build
-make app APP=my_app && make run LINKER=on_chip
-```
-
-**Creating a New Application:**
-1. Create a directory `sw/applications/<app_name>/`
-2. Add a `main.c` file (standard C, bare-metal)
-3. Run `make app APP=<app_name>`
-
-The runtime provides `printf` output over the AXI UART (accessible via `/dev/ttyUL0` after running `make run`).
-
-**Supported Target Boards:**
-The `BOARD` variable selects the board-specific `x-heep.h` header (clock frequency, UART baud rate, etc.):
-
-| `BOARD` Value | Board           |
-| ------------- | --------------- |
-| `pynq-z2`     | PYNQ-Z2         |
-| `aup-zu3`     | AUP-ZU3-8GB     |
-
-Pass `BOARD=<value>` to `make app` to select a different board (default is `pynq-z2`).
-
-**Toolchain Settings:**
-The `sw/Makefile` uses `riscv32-unknown-elf-gcc` from the CORE-V toolchain installed by `make install` at `$HOME/.riscv`. The compilation flags match x-heep's cmake build exactly:
-
-| Setting | Value |
-|---|---|
-| Compiler | `$HOME/.riscv/bin/riscv32-unknown-elf-gcc` |
-| `-march` | `rv32imc_zicsr` |
-| `-mabi` | `ilp32` |
-| `-specs` | `nano.specs` |
-| Key Defines | `-DHOST_BUILD -DINTERNAL_CRTO` |
-
-The x-heep device library (startup code, runtime, UART/SoC drivers) is **bundled directly in `sw/device/`**, so no external x-heep clone is required on the board.
 
 ### Command Line Interface (CLI)
 
@@ -278,7 +195,7 @@ To program the FPGA and run a firmware image remotely:
 python src/xheepRun.py \
   -o path/to/xheep_top.bit \
   -f path/to/firmware.elf  \
-   --linker on_chip
+  -l on_chip
 ```
 
 **Argument Details:**

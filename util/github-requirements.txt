@@ -1,5 +1,3 @@
 # Format: <repo_url> <checkout>
 
 https://github.com/openocd-org/openocd.git b9e40161613fd880fc85fdb357365b70e646ff23
-https://github.com/vlsi-lab/riscv-Xilinx-SoCs-toolchain main
-https://github.com/x-heep/x-heep main

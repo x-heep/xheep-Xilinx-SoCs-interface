@@ -1,8 +1,6 @@
 *.dtbo
 *.dts
-xheep_logs/
-sw/**
-*/__pycache__
+**/__pycache__/
 *.pyc
 *.pyo
 *.pyd

@@ -16,26 +16,20 @@
 # OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 # PERFORMANCE OF THIS SOFTWARE.
 #
-# Makefile for building x-heep applications using the RISC-V GNU toolchain
-# See the README for instructions on how to use this Makefile
+# Makefile for x-heep Xilinx SoCs interface utilities
+# See the README for usage instructions
 
 SHELL := /bin/bash
 ROOT := $(shell pwd)
 USER := xilinx
 NOTEBOOK_DIR := /home/$(USER)/jupyter_notebooks/xheep
 
-# Run / build parameters — all overridable on the command line
+# Run parameters — all overridable on the command line
 LINKER    ?= on_chip
-BOARD     ?= pynq-z2
-PROJECT   ?= hello_world
 OVERLAY   ?= xilinx_core_v_mini_mcu_wrapper.bit
-FLAVOR    ?= base
-BOARD_LC  := $(shell echo "$(BOARD)" | tr '[:upper:]' '[:lower:]')
+APP       ?= 
 
-# Derived path to firmware (used by 'make run')
-TARGET  := sw/build/$(PROJECT)/$(PROJECT).elf
-
-.PHONY: help install install-notebook uninstall uninstall-notebook run app app-clean clean
+.PHONY: help install install-notebook uninstall uninstall-notebook run clean
 
 # help target prints this file with comments as descriptions for each target
 help:
@@ -43,25 +37,19 @@ help:
 
 ## @section Setup & Installation
 
-## Install dependencies, the selected toolchain flavor(s), and sync sw/device from x-heep
+## Install dependencies and configure board environment
 ## Requires sudo privileges to manage system packages and ConfigFS
-## @param FLAVOR=base         				Toolchain flavor(s) to install: base, float, zfinx, all
-## @param BOARD=pynq-z2       				Board target synced from x-heep: pynq-z2, aup-zu3
 install:
 	@sudo -v || (echo "sudo is required. Run 'sudo -v' to cache credentials and retry." && exit 1)
 	@sudo bash util/install_apt.sh
 	@sudo bash util/install_openocd.sh
-	@bash util/install_riscv_toolchain.sh $(FLAVOR)
-	@BOARD=$(BOARD) bash util/install_xheep_sw.sh
 	@sudo bash util/config_bashrc.sh
 	@OWNER_USER=$${SUDO_USER:-$$USER}; \
 	OWNER_GROUP=$$(id -gn "$$OWNER_USER" 2>/dev/null || echo "$$OWNER_USER"); \
 	sudo chown -R "$$OWNER_USER":"$$OWNER_GROUP" "$(ROOT)"; \
 
-## Uninstall toolchain and remove PATH entries from shell profiles
+## Uninstall and remove PATH entries from shell profiles
 uninstall:
-	@sudo -v || (echo "sudo is required. Run 'sudo -v' to cache credentials and retry." && exit 1)
-	@bash util/uninstall_riscv_toolchain.sh
 	@sudo rm -rf /usr/local/src/openocd
 	@sudo rm -f /usr/local/bin/openocd
 	@sudo sed -i '/source \/etc\/profile.d\/pynq_venv.sh/d' /root/.bashrc
@@ -90,31 +78,19 @@ install-notebook:
 
 ## @section Execution
 
-## Run firmware on x-heep via JTAG (or flash for flash_load/flash_exec)
-## @param PROJECT=hello_world     			Application to run (must be built first)
+## Run application on x-heep via JTAG (or flash for flash_load/flash_exec)
 ## @param LINKER=on_chip      	  			Execution mode: on_chip, flash_load, flash_exec
 ## @param OVERLAY=/path/to/bitstream.bit    Path to FPGA bitstream
+## @param APP=/path/to/application.elf      Path to application image (.elf or .bin)
 run:
-	@python3 src/xheepRun.py -o $(OVERLAY) -f $(TARGET) -l $(LINKER)
-
-## @section Application Build
-
-## Compile a RISC-V application using the installed CoreV RISC-V toolchain
-## Produces sw/build/PROJECT/PROJECT.{elf,bin}
-## Always removes any previous build of the same PROJECT before recompiling.
-## @param PROJECT=hello_world     			Application folder under sw/applications/
-## @param LINKER=on_chip      				Linker mode: on_chip, flash_load, flash_exec
-## @param FLAVOR=base         				Toolchain flavor: base (rv32imc), float (rv32imfc), zfinx (rv32imc_zfinx)
-app:
-	@rm -rf sw/build/$(PROJECT)
-	@$(MAKE) -C sw PROJECT=$(PROJECT) LINKER=$(LINKER) TARGET=$(BOARD_LC) FLAVOR=$(FLAVOR)
+	@if [ -z "$(APP)" ]; then \
+		echo "Error: set APP=/path/to/application.elf (or .bin)"; \
+		exit 1; \
+	fi
+	@python3 src/xheepRun.py -o $(OVERLAY) -f $(APP) -l $(LINKER)
 
 ## @section Cleanup
 
-## Clean application build artefacts
-app-clean:
-	@$(MAKE) -C sw clean
-
 ## Clean all build artifacts
-clean: app-clean
+clean:
 	@echo "Clean complete"

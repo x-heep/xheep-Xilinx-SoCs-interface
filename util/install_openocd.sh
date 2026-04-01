@@ -7,7 +7,6 @@ set -euo pipefail
 #
 # Usage: ./install_openocd.sh [target_dir]
 
-# Robustly resolve path to github-requirements.txt relative to this script
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 GITHUB_REQ="$SCRIPT_DIR/github-requirements.txt"
 # Extract OpenOCD repo and commit from github-requirements.txt
@@ -16,17 +15,22 @@ TAG=$(awk '/openocd-org\/openocd/ {print $2}' "$GITHUB_REQ")
 PATCH_PATH="$(cd "$(dirname "$0")/.." && pwd)/patch/openocd.patch"
 TARGET_DIR="${1:-/usr/local/src/openocd}"
 OPENOCD_BIN="/usr/local/bin/openocd"
+PATCH_COMMIT_MSG="Apply x-heep patch"
+BUILD_BRANCH="xheep-openocd-${TAG:0:8}"
 
 echo "OpenOCD target: ${TARGET_DIR} (repo: $REPO_URL, commit: $TAG)"
 
 if [ -f "$OPENOCD_BIN" ] && [ -d "${TARGET_DIR}/.git" ]; then
   INSTALLED_COMMIT="$(cd "${TARGET_DIR}" && git rev-parse HEAD 2>/dev/null || true)"
-  if [ "$INSTALLED_COMMIT" = "$TAG" ]; then
-    echo "SKIP: OpenOCD already built from commit ${TAG}."
+  INSTALLED_PARENT="$(cd "${TARGET_DIR}" && git rev-parse HEAD^ 2>/dev/null || true)"
+  INSTALLED_SUBJECT="$(cd "${TARGET_DIR}" && git log -1 --pretty=%s 2>/dev/null || true)"
+
+  if [ "$INSTALLED_COMMIT" = "$TAG" ] || { [ "$INSTALLED_PARENT" = "$TAG" ] && [ "$INSTALLED_SUBJECT" = "$PATCH_COMMIT_MSG" ]; }; then
+    echo "SKIP: OpenOCD already built from target commit ${TAG} (patched state recognized)."
     exit 0
-  else
-    echo "OpenOCD present but from a different commit (${INSTALLED_COMMIT}), rebuilding."
   fi
+
+  echo "OpenOCD present but from a different commit (${INSTALLED_COMMIT}), rebuilding."
 fi
 
 if [ -d "${TARGET_DIR}/.git" ]; then
@@ -40,7 +44,7 @@ else
 fi
 
 echo "Checking out ${TAG}"
-git checkout "${TAG}" || git checkout -B "build-${TAG}" "${TAG}"
+git checkout -B "${BUILD_BRANCH}" "${TAG}"
 git reset --hard "${TAG}"
 
 echo "Applying patch: ${PATCH_PATH}"
@@ -54,7 +58,7 @@ fi
 if ! git config user.name >/dev/null; then
   git config user.name "x-heep"
 fi
-git commit -m "Apply x-heep patch" || true
+git commit -m "$PATCH_COMMIT_MSG" || true
 
 echo "Initializing and updating submodules"
 git submodule update --init --recursive

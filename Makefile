@@ -48,7 +48,7 @@ help:
 install:
 	@sudo -v || (echo "sudo is required. Run 'sudo -v' to cache credentials and retry." && exit 1)
 	@sudo bash util/install_apt.sh
-	@sudo bash util/install_git.sh
+	@sudo bash util/install_openocd.sh
 	@bash util/install_riscv_toolchain.sh $(FLAVOR)
 	@bash util/install_xheep_sw.sh
 	@sudo bash util/config_bashrc.sh

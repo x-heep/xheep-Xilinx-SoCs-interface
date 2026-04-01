@@ -1,3 +1,2 @@
 device-tree-compiler
 picocom
-jdupes

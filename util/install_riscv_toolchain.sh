@@ -14,7 +14,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 GITHUB_REQ="$SCRIPT_DIR/github-requirements.txt"
-TOOLCHAIN_REPO=$(awk '/vlsi-lab\/riscv-Xilinx-SoCs-toolchain/ {match($1, /github.com\/([^/]+\/[^.]+)(.git)?/, m); print m[1]}' "$GITHUB_REQ")
+TOOLCHAIN_REPO=$(awk '/vlsi-lab\/riscv-Xilinx-SoCs-toolchain/ {print $1}' "$GITHUB_REQ" | sed -E 's#https?://github.com/##; s#\.git$##')
 # Optionally extract checkout (not used in this script, but available)
 TOOLCHAIN_CHECKOUT=$(awk '/vlsi-lab\/riscv-Xilinx-SoCs-toolchain/ {print $2}' "$GITHUB_REQ")
 INSTALL_ROOT="${HOME}/.riscv"
@@ -86,7 +86,7 @@ for FLAVOR in "${REQUESTED_FLAVORS[@]}"; do
   INSTALL_DIR="${INSTALL_ROOT}/${FLAVOR}"
 
   if TOOL_BIN=$(find_gcc "${INSTALL_DIR}"); then
-    echo "Flavor '${FLAVOR}' already installed at ${INSTALL_DIR}:"
+    echo "SKIP: flavor '${FLAVOR}' already installed at ${INSTALL_DIR}:"
     echo "  $("${TOOL_BIN}" --version 2>&1 | head -1)"
     continue
   fi
@@ -164,7 +164,9 @@ for FLAVOR in base float zfinx; do
   fi
 done
 if [ "$INSTALLED_ANY" -eq 0 ]; then
-  echo "No new flavor was installed (requested flavors already present)."
+  echo "SKIP: no new flavor installed (requested flavors already present)."
+else
+  echo "DONE: requested toolchain flavor installation complete."
 fi
 echo "Active flavor for shell PATH: ${ACTIVE_FLAVOR}"
 echo "Re-source your shell or open a new terminal to pick up the updated PATH..."

@@ -1,3 +1,4 @@
+#!/bin/bash
 set -euo pipefail
 
 # Script to fetch, patch, build and install OpenOCD v0.12.0
@@ -21,7 +22,7 @@ echo "OpenOCD target: ${TARGET_DIR} (repo: $REPO_URL, commit: $TAG)"
 if [ -f "$OPENOCD_BIN" ] && [ -d "${TARGET_DIR}/.git" ]; then
   INSTALLED_COMMIT="$(cd "${TARGET_DIR}" && git rev-parse HEAD 2>/dev/null || true)"
   if [ "$INSTALLED_COMMIT" = "$TAG" ]; then
-    echo "OpenOCD already built from commit ${TAG} — skipping."
+    echo "SKIP: OpenOCD already built from commit ${TAG}."
     exit 0
   else
     echo "OpenOCD present but from a different commit (${INSTALLED_COMMIT}), rebuilding."
@@ -69,4 +70,4 @@ make -j"$(nproc)"
 sudo make install
 make clean
 
-echo "OpenOCD ${TAG} installed..."
+echo "DONE: OpenOCD ${TAG} installed."

@@ -44,16 +44,14 @@ help:
 
 ## Install dependencies, the selected toolchain flavor(s), and sync sw/device from x-heep
 ## Requires sudo privileges to manage system packages and ConfigFS
-## @param FLAVOR=base         Toolchain flavor(s) to install: base, float, zfinx, all
-## @param XHEEP_REPO=...      x-heep git URL (default: https://github.com/x-heep/x-heep)
+## @param FLAVOR=base         				Toolchain flavor(s) to install: base, float, zfinx, all
 install:
 	@sudo -v || (echo "sudo is required. Run 'sudo -v' to cache credentials and retry." && exit 1)
 	@sudo bash util/install_apt.sh
 	@sudo bash util/install_git.sh
 	@bash util/install_riscv_toolchain.sh $(FLAVOR)
-	@bash util/install_xheep_sw.sh $(if $(XHEEP_REPO),$(XHEEP_REPO),)
-	@sudo bash -c "grep -qxF 'source /etc/profile.d/pynq_venv.sh' /root/.bashrc || echo 'source /etc/profile.d/pynq_venv.sh' >> /root/.bashrc"
-	@sudo bash -c "grep -qxF 'cd /home/xilinx' /root/.bashrc || echo 'cd /home/xilinx' >> /root/.bashrc"
+	@bash util/install_xheep_sw.sh
+	@sudo bash util/config_bashrc.sh
 
 ## Uninstall toolchain and remove PATH entries from shell profiles
 uninstall:
@@ -88,9 +86,9 @@ install-notebook:
 ## @section Execution
 
 ## Run firmware on x-heep via JTAG (or flash for flash_load/flash_exec)
-## @param PROJECT=hello_world     Application to run (must be built first)
-## @param LINKER=on_chip      Execution mode: on_chip, flash_load, flash_exec
-## @param OVERLAY=...bit      Path to FPGA bitstream
+## @param PROJECT=hello_world     			Application to run (must be built first)
+## @param LINKER=on_chip      	  			Execution mode: on_chip, flash_load, flash_exec
+## @param OVERLAY=/path/to/bitstream.bit    Path to FPGA bitstream
 run:
 	@python3 src/xheepRun.py -o $(OVERLAY) -f $(TARGET) -m $(LINKER)
 
@@ -99,10 +97,10 @@ run:
 ## Compile a RISC-V application using the installed CoreV RISC-V toolchain
 ## Produces sw/build/PROJECT/PROJECT.{elf,bin}
 ## Always removes any previous build of the same PROJECT before recompiling.
-## @param PROJECT=hello_world     Application folder under sw/applications/
-## @param LINKER=on_chip      Linker mode: on_chip, flash_load, flash_exec
-## @param BOARD=pynq-z2       Target board: pynq-z2, aup-zu3
-## @param FLAVOR=base         Toolchain flavor: base (rv32imc), float (rv32imfc), zfinx (rv32imc_zfinx)
+## @param PROJECT=hello_world     			Application folder under sw/applications/
+## @param LINKER=on_chip      				Linker mode: on_chip, flash_load, flash_exec
+## @param BOARD=pynq-z2       				Target board: pynq-z2, aup-zu3
+## @param FLAVOR=base         				Toolchain flavor: base (rv32imc), float (rv32imfc), zfinx (rv32imc_zfinx)
 app:
 	@rm -rf sw/build/$(PROJECT)
 	@$(MAKE) -C sw PROJECT=$(PROJECT) LINKER=$(LINKER) TARGET=$(BOARD) FLAVOR=$(FLAVOR)

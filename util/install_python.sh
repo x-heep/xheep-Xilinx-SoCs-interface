@@ -32,9 +32,9 @@ while IFS= read -r pkg || [ -n "$pkg" ]; do
 done < "$REQ"
 
 if [ "${#MISSING[@]}" -eq 0 ]; then
-  echo "All Python packages already installed — nothing to do..."
+  echo "SKIP: Python requirements already satisfied."
 else
   echo "Installing: ${MISSING[*]}"
   pip install "${MISSING[@]}"
-  echo "Python packages installed..."
+  echo "DONE: Python packages installed."
 fi

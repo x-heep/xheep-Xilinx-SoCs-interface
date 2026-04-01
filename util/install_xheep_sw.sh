@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 # Sync sw/device/ from the official x-heep repository
 # {https://github.com/x-heep/x-heep}.
@@ -16,8 +17,24 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 GITHUB_REQ="$SCRIPT_DIR/github-requirements.txt"
 # Extract x-heep repo from github-requirements.txt
 XHEEP_REPO=$(awk '/x-heep\/x-heep/ {print $1}' "$GITHUB_REQ")
+XHEEP_CHECKOUT=$(awk '/x-heep\/x-heep/ {print $2}' "$GITHUB_REQ")
 SW_DIR="$(cd "$SCRIPT_DIR/../sw" && pwd)"
 DEVICE_DIR="$SW_DIR/device"
+SYNC_MARKER="$DEVICE_DIR/.xheep_sync_commit"
+
+if [[ "$XHEEP_CHECKOUT" =~ ^[0-9a-fA-F]{40}$ ]]; then
+    EXPECTED_COMMIT="$XHEEP_CHECKOUT"
+else
+    EXPECTED_COMMIT="$(git ls-remote "$XHEEP_REPO" "refs/heads/$XHEEP_CHECKOUT" | awk 'NR==1 {print $1}')"
+fi
+
+if [ -n "${EXPECTED_COMMIT:-}" ] && [ -f "$SYNC_MARKER" ] && [ -f "$DEVICE_DIR/lib/crt/crt0.S" ]; then
+    CURRENT_SYNC="$(cat "$SYNC_MARKER" 2>/dev/null || true)"
+    if [ "$CURRENT_SYNC" = "$EXPECTED_COMMIT" ]; then
+        echo "SKIP: sw/device already synced at ${EXPECTED_COMMIT}."
+        exit 0
+    fi
+fi
 
 # Save the custom syscalls.c before the sync
 SYSCALLS_BACKUP=$(mktemp)
@@ -34,6 +51,9 @@ trap 'rm -rf "$TMP" "$SYSCALLS_BACKUP"' EXIT
 echo "Cloning x-heep (sparse) from ${XHEEP_REPO}..."
 git clone --depth=1 --filter=blob:none --sparse "$XHEEP_REPO" "$TMP/x-heep"
 cd "$TMP/x-heep"
+if [ -n "${XHEEP_CHECKOUT:-}" ]; then
+    git checkout "$XHEEP_CHECKOUT"
+fi
 git sparse-checkout set sw/device
 
 echo "Syncing sw/device/ from x-heep..."
@@ -59,3 +79,7 @@ if [ "$RESTORE_SYSCALLS" -eq 1 ]; then
 fi
 
 echo "sw/device/ updated from x-heep."
+
+SYNC_COMMIT="$(git rev-parse HEAD)"
+echo "$SYNC_COMMIT" > "$SYNC_MARKER"
+echo "DONE: sync marker updated to ${SYNC_COMMIT}."

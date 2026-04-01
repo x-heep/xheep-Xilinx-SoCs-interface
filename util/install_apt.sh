@@ -1,3 +1,4 @@
+#!/bin/bash
 set -euo pipefail
 
 # Install apt packages listed in util/apt-requirements.txt,
@@ -22,10 +23,10 @@ while IFS= read -r pkg || [ -n "$pkg" ]; do
 done < "$REQ"
 
 if [ "${#MISSING[@]}" -eq 0 ]; then
-  echo "All apt packages already installed — nothing to do."
+  echo "SKIP: apt requirements already satisfied."
 else
   echo "Installing: ${MISSING[*]}"
   sudo apt-get update -qq
   sudo apt-get install -y "${MISSING[@]}"
-  echo "Apt packages installed."
+  echo "DONE: apt packages installed."
 fi

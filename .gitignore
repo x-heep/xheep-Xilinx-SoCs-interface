@@ -1,10 +1,7 @@
-# Build artifacts
 *.dtbo
 *.dts
 xheep_logs/
 sw/build
-
-# Python
 */__pycache__
 *.pyc
 *.pyo
@@ -13,21 +10,14 @@ sw/build
 *.egg-info/
 .eggs/
 *.egg
-
-# FPGA files (keep templates, ignore generated)
 *.bit
 *.hwh
 *.xclbin
 *.elf
 *.bin
-
-# IDE
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
-
-# OS
-.DS_Store
-Thumbs.db
+sw/device

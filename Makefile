@@ -44,9 +44,6 @@ install:
 	@sudo bash util/install_apt.sh
 	@sudo bash util/install_openocd.sh
 	@sudo bash util/config_bashrc.sh
-	@OWNER_USER=$${SUDO_USER:-$$USER}; \
-	OWNER_GROUP=$$(id -gn "$$OWNER_USER" 2>/dev/null || echo "$$OWNER_USER"); \
-	sudo chown -R "$$OWNER_USER":"$$OWNER_GROUP" "$(ROOT)"; \
 
 ## Uninstall and remove PATH entries from shell profiles
 uninstall:

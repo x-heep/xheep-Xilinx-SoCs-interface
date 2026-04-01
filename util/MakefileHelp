@@ -1,4 +1,5 @@
 #!/bin/bash
+
 RULE_COLOR="$(tput setaf 6)"
 SECTION_COLOR="$(tput setaf 3)"
 SSECTION_COLOR="$(tput setaf 5)"

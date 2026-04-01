@@ -1,5 +1,3 @@
-# github-requirements.txt
-# List of required GitHub repositories and their checkouts (commit, tag, or branch)
 # Format: <repo_url> <checkout>
 
 https://github.com/openocd-org/openocd.git b9e40161613fd880fc85fdb357365b70e646ff23

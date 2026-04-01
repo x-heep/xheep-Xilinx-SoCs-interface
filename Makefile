@@ -27,7 +27,7 @@ NOTEBOOK_DIR := /home/$(USER)/jupyter_notebooks/xheep
 # Run / build parameters — all overridable on the command line
 LINKER    ?= on_chip
 BOARD     ?= pynq-z2
-PROJECT       ?= hello_world
+PROJECT   ?= hello_world
 OVERLAY   ?= xilinx_core_v_mini_mcu_wrapper.bit
 FLAVOR    ?= base
 

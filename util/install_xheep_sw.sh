@@ -9,8 +9,9 @@ set -euo pipefail
 #
 # Only sw/device/ is touched; the custom sw/Makefile, sw/linker/,
 # sw/applications/, and the FPGA-specific sw/device/lib/runtime/syscalls.c
-# are left untouched.
-#
+# are left untouched
+
+
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 # Robustly resolve path to github-requirements.txt relative to this script
 GITHUB_REQ="$SCRIPT_DIR/github-requirements.txt"

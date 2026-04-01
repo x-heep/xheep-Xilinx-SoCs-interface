@@ -1,4 +1,3 @@
-# This script can be extended to use util/github-requirements.txt for custom Python package installs if needed.
 set -euo pipefail
 
 # Install Python packages listed in util/python-requirements.txt,

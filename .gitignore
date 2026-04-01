@@ -2,6 +2,9 @@
 *.dts
 xheep_logs/
 sw/build
+# Ignore new/untracked content under sw.
+# Files already tracked by git remain tracked and are not hidden.
+sw/**
 */__pycache__
 *.pyc
 *.pyo
@@ -20,4 +23,3 @@ sw/build
 *.swp
 *.swo
 *~
-sw/device

@@ -1,3 +1,4 @@
 pynq
 pyserial
 ipywidgets
+serial

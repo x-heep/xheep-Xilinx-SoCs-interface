@@ -105,7 +105,7 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("-o", "--overlay", required=True, help="Path to .bit")
     ap.add_argument("-f", "--firmware", required=True, help="Path to .elf or .bin")
-    ap.add_argument("-m", "--memory", choices=["on_chip", "flash_load", "flash_exec"],
+    ap.add_argument("-l", "--linker", choices=["on_chip", "flash_load", "flash_exec"],
                     default="on_chip", help="Execution mode")
     ap.add_argument("--verify", action="store_true", help="Verify after load")
     ap.add_argument("--force", action="store_true", help="Force PL reload")
@@ -167,7 +167,7 @@ def main() -> int:
     xvc_addr = xheep.jtag.getAddr()
 
     # Handle flash operations using direct MMIO (does not require kernel drivers)
-    if args.memory in ["flash_load", "flash_exec"]:
+    if args.linker in ["flash_load", "flash_exec"]:
         # Need .bin file for flash
         if fw.suffix == ".elf":
             bin_file = fw.with_suffix(".bin")
@@ -214,11 +214,11 @@ def main() -> int:
     xheep.gpio.assertReset()
 
     # Configure boot mode (safe: RST_NI=0)
-    if args.memory == "on_chip":
+    if args.linker == "on_chip":
         xheep.gpio.bootFromJTAG()
-    elif args.memory == "flash_load":
+    elif args.linker == "flash_load":
         xheep.gpio.loadFromFlash()
-    elif args.memory == "flash_exec":
+    elif args.linker == "flash_exec":
         xheep.gpio.execFromFlash()
 
     # Release reset - X-HEEP starts exactly once with the correct boot mode
@@ -228,7 +228,7 @@ def main() -> int:
     # For flash_exec and flash_load, X-HEEP handles flash access autonomously
     # (flash_exec: XIP execution; flash_load: bootrom copies flash->RAM)
     # No JTAG loading needed in either case - only on_chip uses JTAG
-    if args.memory in ["flash_exec", "flash_load"]:
+    if args.linker in ["flash_exec", "flash_load"]:
         log("info", "X-HEEP is executing from flash...")
         log("info", "Waiting for completion...")
 

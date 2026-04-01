@@ -17,9 +17,39 @@
 
 # Author: Jose Miranda, Juan Sapriza (jose.mirandacalero / juan.sapriza @epfl.ch)
 
-RISCV     ?= $(HOME)/.riscv
-ARCH      ?= rv32imc_zicsr
-ABI       ?= ilp32
+FLAVOR    ?= base
+
+ifeq ($(FLAVOR),base)
+  RISCV_DEFAULT := $(HOME)/.riscv/base
+  ARCH_DEFAULT  := rv32imc_zicsr
+  ABI_DEFAULT   := ilp32
+else ifeq ($(FLAVOR),float)
+  RISCV_DEFAULT := $(HOME)/.riscv/float
+  ARCH_DEFAULT  := rv32imfc_zicsr
+  ABI_DEFAULT   := ilp32f
+else ifeq ($(FLAVOR),zfinx)
+  RISCV_DEFAULT := $(HOME)/.riscv/zfinx
+  ARCH_DEFAULT  := rv32imc_zicsr_zfinx
+  ABI_DEFAULT   := ilp32
+else
+  $(error Unsupported FLAVOR='$(FLAVOR)'. Use one of: base, float, zfinx)
+endif
+
+RISCV     ?= $(RISCV_DEFAULT)
+ARCH      ?= $(ARCH_DEFAULT)
+ABI       ?= $(ABI_DEFAULT)
+
+# Backward compatibility: if per-flavor install is missing but legacy ~/.riscv
+# layout exists, keep using it.
+ifneq ($(wildcard $(RISCV)/bin/riscv32-corev-elf-gcc),)
+  # keep RISCV as-is
+else ifneq ($(wildcard $(RISCV)/bin/riscv32-unknown-elf-gcc),)
+  # keep RISCV as-is
+else ifneq ($(wildcard $(HOME)/.riscv/bin/riscv32-corev-elf-gcc),)
+  RISCV := $(HOME)/.riscv
+else ifneq ($(wildcard $(HOME)/.riscv/bin/riscv32-unknown-elf-gcc),)
+  RISCV := $(HOME)/.riscv
+endif
 
 ifneq ($(wildcard $(RISCV)/bin/riscv32-corev-elf-gcc),)
   RISCV_PREFIX  := riscv32-corev-elf

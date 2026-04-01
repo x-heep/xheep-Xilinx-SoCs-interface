@@ -13,11 +13,16 @@ else
     echo "${INSTALL_DIR} not found, skipping."
 fi
 
-# Remove PATH entry from shell rc files
+# Remove PATH entries from shell rc files (legacy and current layout)
 PATH_LINE="export PATH=\"${INSTALL_DIR}/bin:\$PATH\""
+PATH_LINE_CURRENT="export PATH=\"${INSTALL_DIR}/current/bin:\$PATH\""
 for RC in "${HOME}/.bashrc" "${HOME}/.zshrc"; do
     if [ -f "$RC" ] && grep -qF "$PATH_LINE" "$RC" 2>/dev/null; then
         sed -i "\|${PATH_LINE}|d" "$RC"
+        echo "Removed PATH entry from ${RC}"
+    fi
+    if [ -f "$RC" ] && grep -qF "$PATH_LINE_CURRENT" "$RC" 2>/dev/null; then
+        sed -i "\|${PATH_LINE_CURRENT}|d" "$RC"
         echo "Removed PATH entry from ${RC}"
     fi
 done

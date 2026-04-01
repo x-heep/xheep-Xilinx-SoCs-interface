@@ -1,11 +1,16 @@
 #!/bin/bash
 set -euo pipefail
 
-# Sync sw/ from the official x-heep repository
+# Copyright 2026 Politecnico di Torino.
+#
+# File: install_xheep_sw.sh
+# Author: Christian Conti {christian.conti@polito.it}
+# Date: 31/03/2026
+# Description: Sync sw/ from the official x-heep repository
 # {https://github.com/x-heep/x-heep}.
 #
 # This keeps software sources aligned with upstream x-heep, while syncing only
-# the selected board target under sw/device/target.
+# the selected board target under sw/device/target
 #
 # BOARD options: AUP-ZU3 or PYNQ-Z2
 
@@ -30,7 +35,7 @@ case "$BOARD_NORM" in
         BOARD_TARGET="aup-zu3"
         ;;
     *)
-        echo "Unsupported BOARD: ${BOARD_RAW}. Use one of: PYNQ-Z2, AUP-ZU3" >&2
+        echo "Unsupported BOARD: ${BOARD_RAW}. Use one of: PYNQ-Z2, AUP-ZU3..." >&2
         exit 1
         ;;
 esac
@@ -114,4 +119,13 @@ echo "sw/ updated from x-heep."
 
 SYNC_COMMIT="$(git rev-parse HEAD)"
 echo "${SYNC_COMMIT}:${BOARD_TARGET}" > "$SYNC_MARKER"
-echo "DONE: sync marker updated to ${SYNC_COMMIT} (board ${BOARD_TARGET})."
+
+# If run via sudo, return ownership of sw/ to the invoking user to avoid
+# permission issues in subsequent non-root runs
+if [ "${EUID}" -eq 0 ] && [ -n "${SUDO_USER:-}" ]; then
+    TARGET_GROUP=$(id -gn "$SUDO_USER" 2>/dev/null || echo "$SUDO_USER")
+    chown -R "$SUDO_USER":"$TARGET_GROUP" "$SW_DIR"
+    echo "DONE: restored ownership of $SW_DIR to $SUDO_USER:$TARGET_GROUP."
+fi
+
+echo "DONE: sync marker updated to ${SYNC_COMMIT} (board ${BOARD_TARGET})..."

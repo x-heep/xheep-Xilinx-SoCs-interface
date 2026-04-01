@@ -1,7 +1,12 @@
 #!/bin/bash
 set -euo pipefail
 
-# Download and install the CORE-V RISC-V toolchain for X-HEEP
+# Copyright 2026 Politecnico di Torino.
+#
+# File: install_xheep_sw.sh
+# Author: Christian Conti {christian.conti@polito.it}
+# Date: 31/03/2026
+# Description: Download and install the CORE-V RISC-V toolchain for X-HEEP
 # from the riscv-Xilinx-SoCs-toolchain GitHub release
 # {https://github.com/vlsi-lab/riscv-Xilinx-SoCs-toolchain}
 #
@@ -53,12 +58,12 @@ case "$MACHINE" in
   aarch64)       ARCH_LABEL="aarch64" ;;
   x86_64)        ARCH_LABEL="x86_64" ;;
   *)
-    echo "Unsupported host architecture: $MACHINE" >&2
+    echo "Unsupported host architecture: $MACHINE..." >&2
     exit 1
     ;;
 esac
 
-echo "Detected host architecture: ${ARCH_LABEL}"
+echo "Detected host architecture: ${ARCH_LABEL}..."
 
 # Locate the GCC binary — riscv-gnu-toolchain may produce either
 # riscv32-corev-elf-gcc (CORE-V patched) or riscv32-unknown-elf-gcc (default)
@@ -87,7 +92,7 @@ for FLAVOR in "${REQUESTED_FLAVORS[@]}"; do
 
   if TOOL_BIN=$(find_gcc "${INSTALL_DIR}"); then
     echo "SKIP: flavor '${FLAVOR}' already installed at ${INSTALL_DIR}:"
-    echo "  $("${TOOL_BIN}" --version 2>&1 | head -1)"
+    echo "  $("${TOOL_BIN}" --version 2>&1 | head -1)..."
     continue
   fi
 
@@ -105,8 +110,8 @@ for a in data.get('assets', []):
 " 2>/dev/null || true)
 
   if [ -z "$ASSET_URL" ]; then
-    echo "Error: could not find asset matching '${ASSET_PREFIX}*' in the latest release." >&2
-    echo "Check the releases at: https://github.com/${TOOLCHAIN_REPO}/releases" >&2
+    echo "Error: could not find asset matching '${ASSET_PREFIX}*' in the latest release..." >&2
+    echo "Check the releases at: https://github.com/${TOOLCHAIN_REPO}/releases..." >&2
     exit 1
   fi
 
@@ -127,8 +132,8 @@ for a in data.get('assets', []):
   fi
 
   GCC_NAME=$(basename "${TOOL_BIN}")
-  echo "Installed (${FLAVOR}): $(\"${TOOL_BIN}\" --version 2>&1 | head -1)"
-  echo "Compiler binary: ${GCC_NAME}"
+  echo "Installed (${FLAVOR}): $(\"${TOOL_BIN}\" --version 2>&1 | head -1)..."
+  echo "Compiler binary: ${GCC_NAME}..."
   INSTALLED_ANY=1
 done
 
@@ -148,11 +153,11 @@ LEGACY_PATH_LINE="export PATH=\"${INSTALL_ROOT}/bin:\$PATH\""
 for RC in "${HOME}/.bashrc" "${HOME}/.zshrc"; do
   if [ -f "$RC" ] && grep -qF "$LEGACY_PATH_LINE" "$RC" 2>/dev/null; then
     sed -i "\|${LEGACY_PATH_LINE}|d" "$RC"
-    echo "Removed legacy PATH entry from ${RC}"
+    echo "Removed legacy PATH entry from ${RC}..."
   fi
   if [ -f "$RC" ] && ! grep -qF "$PATH_LINE" "$RC" 2>/dev/null; then
     echo "$PATH_LINE" >> "$RC"
-    echo "Added PATH entry to ${RC}"
+    echo "Added PATH entry to ${RC}..."
   fi
 done
 
@@ -164,9 +169,9 @@ for FLAVOR in base float zfinx; do
   fi
 done
 if [ "$INSTALLED_ANY" -eq 0 ]; then
-  echo "SKIP: no new flavor installed (requested flavors already present)."
+  echo "SKIP: no new flavor installed (requested flavors already present)..."
 else
-  echo "DONE: requested toolchain flavor installation complete."
+  echo "DONE: requested toolchain flavor installation complete..."
 fi
 echo "Active flavor for shell PATH: ${ACTIVE_FLAVOR}"
 echo "Re-source your shell or open a new terminal to pick up the updated PATH..."

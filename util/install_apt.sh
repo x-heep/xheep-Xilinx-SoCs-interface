@@ -1,7 +1,12 @@
 #!/bin/bash
 set -euo pipefail
 
-# Install apt packages listed in util/apt-requirements.txt,
+# Copyright 2026 Politecnico di Torino.
+#
+# File: install_xheep_sw.sh
+# Author: Christian Conti {christian.conti@polito.it}
+# Date: 31/03/2026
+# Description: Install apt packages listed in util/apt-requirements.txt,
 # skipping any package that is already correctly installed
 
 REQ="$(cd "$(dirname "$0")" && pwd)/apt-requirements.txt"
@@ -23,10 +28,10 @@ while IFS= read -r pkg || [ -n "$pkg" ]; do
 done < "$REQ"
 
 if [ "${#MISSING[@]}" -eq 0 ]; then
-  echo "SKIP: apt requirements already satisfied."
+  echo "SKIP: apt requirements already satisfied..."
 else
   echo "Installing: ${MISSING[*]}"
   sudo apt-get update -qq
   sudo apt-get install -y "${MISSING[@]}"
-  echo "DONE: apt packages installed."
+  echo "DONE: apt packages installed..."
 fi

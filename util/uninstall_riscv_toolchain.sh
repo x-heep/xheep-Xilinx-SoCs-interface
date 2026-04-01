@@ -10,7 +10,7 @@ if [ -d "${INSTALL_DIR}" ]; then
     echo "Removing ${INSTALL_DIR}..."
     rm -rf "${INSTALL_DIR}"
 else
-    echo "${INSTALL_DIR} not found, skipping."
+    echo "${INSTALL_DIR} not found, skipping..."
 fi
 
 # Remove PATH entries from shell rc files (legacy and current layout)

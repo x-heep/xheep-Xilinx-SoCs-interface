@@ -1,7 +1,12 @@
 #!/bin/bash
 set -euo pipefail
 
-# Script to fetch, patch, build and install OpenOCD v0.12.0
+# Copyright 2026 Politecnico di Torino.
+#
+# File: install_xheep_sw.sh
+# Author: Christian Conti {christian.conti@polito.it}
+# Date: 31/03/2026
+# Description: Fetch, patch, build and install OpenOCD v0.12.0
 # Skips the build if the binary at /usr/local/bin/openocd was already built
 # from the expected commit
 #
@@ -26,15 +31,15 @@ if [ -f "$OPENOCD_BIN" ] && [ -d "${TARGET_DIR}/.git" ]; then
   INSTALLED_SUBJECT="$(cd "${TARGET_DIR}" && git log -1 --pretty=%s 2>/dev/null || true)"
 
   if [ "$INSTALLED_COMMIT" = "$TAG" ] || { [ "$INSTALLED_PARENT" = "$TAG" ] && [ "$INSTALLED_SUBJECT" = "$PATCH_COMMIT_MSG" ]; }; then
-    echo "SKIP: OpenOCD already built from target commit ${TAG} (patched state recognized)."
+    echo "SKIP: OpenOCD already built from target commit ${TAG}..."
     exit 0
   fi
 
-  echo "OpenOCD present but from a different commit (${INSTALLED_COMMIT}), rebuilding."
+  echo "OpenOCD present but from a different commit (${INSTALLED_COMMIT}), rebuilding..."
 fi
 
 if [ -d "${TARGET_DIR}/.git" ]; then
-  echo "Repository already exists at ${TARGET_DIR}, fetching tags."
+  echo "Repository already exists at ${TARGET_DIR}, fetching tags..."
   cd "${TARGET_DIR}"
   git fetch --tags --all
 else
@@ -69,9 +74,9 @@ echo "Preparing build"
 echo "Configuring build with FTDI, bitbang, XVC and internal JimTcl support"
 ./configure --enable-ftdi --enable-bitbang --enable-xlnx-axi-xvc --enable-internal-jimtcl
 
-echo "Building OpenOCD (this may take a while)"
+echo "Building OpenOCD..."
 make -j"$(nproc)"
 sudo make install
 make clean
 
-echo "DONE: OpenOCD ${TAG} installed."
+echo "DONE: OpenOCD ${TAG} installed..."

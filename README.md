@@ -4,7 +4,11 @@
 
 ---
 
-This repository provides the software interface and drivers required to integrate the [x-heep](https://github.com/x-heep/x-heep) RISC-V core with the Processing System (PS) of Xilinx SoCs. 
+<p align="center">
+   <img src="img/x-heep-xilinx-interface.png" alt="x-heep Xilinx Interface Schematic" width="460" />
+</p>
+
+This repository provides the software interface and drivers required to integrate the [x-heep](https://github.com/x-heep/x-heep) RISC-V system with the Processing System (PS) of Xilinx SoCs. 
 
 Acting as a bridge between the Xilinx ARM-based Processing System and the FPGA Programmable Logic (PL) hosting x-heep, this framework enables a fully remote development. 
 Users can deploy, test, and debug the core via SSH, entirely eliminating the need for physical access to on-board JTAG or UART headers.
@@ -40,10 +44,14 @@ The installation process is fully automated through a single command.
 This script installs system dependencies, builds OpenOCD with specific patches, and configures the Python environment.
 
 ```bash
-sudo make install
+make install
 ```
 
-> **Note:** This requires `sudo` privileges to manage system packages, install OpenOCD, and manipulate the kernel's ConfigFS.
+> **Note:** The `install` target already invokes `sudo` internally only where needed.
+> Run `make install` as your normal user to avoid root-owned files in the repository.
+
+> **Tip:** To work directly in the configured root environment, run `sudo -i`.
+>          The shell is configured to automatically source the PYNQ virtual environment and place you in `/home/xilinx`.
 
 > **Warning:** `make install` performs large downloads and compilation (cloning OpenOCD, building OpenOCD and the RISC-V toolchain, etc.). 
 >              Depending on your network and CPU it can take a long time.
@@ -86,12 +94,17 @@ This copies all necessary files (notebook, drivers, config, DTS templates) to `~
 
 ### RISC-V Toolchain
 
-The RISC-V toolchain used in this repository is available at: [https://github.com/vlsi-lab/riscv-Xilinx-SoCs-toolchain](https://github.com/vlsi-lab/riscv-Xilinx-SoCs-toolchain)
+The RISC-V toolchain used in this repository is available at: [https://github.com/vlsi-lab/riscv-Xilinx-SoCs-toolchain.git](https://github.com/vlsi-lab/riscv-Xilinx-SoCs-toolchain.git)
 
 **Key Points:**
 * The toolchain is fragmented into different flavors depending on the target ISA to reduce its size.
 * It is updated at the beginning of each month to provide the latest features and fixes.
 * The toolchain is installed to `$HOME/.riscv`, matching x-heep's convention.
+
+**Flavor Quick Reference:**
+* `base` — Integer-only baseline toolchain (`rv32imc` / `ilp32`) for standard embedded builds.
+* `float` — Floating-point flavor (`rv32imfc` / `ilp32f`) for applications that use hardware FP.
+* `zfinx` — Zfinx flavor (`rv32imc_zfinx` / `ilp32`) for cores using integer register file FP (`Zfinx`).
 
 `make install` automatically downloads and installs the appropriate toolchain flavor for your platform. This is the same toolchain used by x-heep, cross-compiled for ARM hosts (armhf/aarch64).
 
@@ -105,6 +118,7 @@ The RISC-V toolchain used in this repository is available at: [https://github.co
 * [`pynq`](https://github.com/Xilinx/PYNQ) — FPGA bitstream management and MMIO access. **(Required)**
 * `pyserial` — UART serial communication.
 * `ipywidgets` — interactive widgets for the Jupyter notebook.
+* `serial` — serial module dependency used by runtime tooling.
 
 ### External Tools
 * OpenOCD v0.12.0 (built and patched during `make install`).
@@ -114,7 +128,7 @@ The RISC-V toolchain used in this repository is available at: [https://github.co
    
 ## Execution Flow
 
-The `xheepRun.py` script follows a strict sequence to ensure hardware stability and kernel synchronization. It supports three execution modes controlled via the `--memory` flag:
+The `xheepRun.py` script supports three execution modes controlled via the `--linker` flag:
 
 ### 1. On-Chip Memory Mode (JTAG) — Default
 The fastest execution mode, suitable for small programs that fit in internal RAM.
@@ -127,18 +141,18 @@ The fastest execution mode, suitable for small programs that fit in internal RAM
 6. **Monitoring:** Once execution begins, the script monitors GPIO signals. Upon completion, it displays the Exit Valid and Exit Value codes.
 
 ### 2. Flash Load Mode
-Programs the external flash memory and loads/executes via JTAG. Useful for larger programs.
+Programs the external flash memory and loads/executes via JTAG.
 
 1. **UART Cleanup:** Unbinds the driver and removes the existing overlay.
 2. **PL Reset & Programming:** Resets PL and loads the new bitstream.
 3. **Dynamic Overlay Injection:** Injects the `.dtbo` to re-attach the UART (`/dev/ttyUL0`).
 4. **User Confirmation:** Halts and waits for the user to press Enter.
-5. **Flash Programming:** The firmware binary is programmed into external SPI NOR flash using direct MMIO (without requiring kernel SPI drivers).
+5. **Flash Programming:** The firmware binary is programmed into external SPI NOR flash using direct MMIO.
 6. **Flash Boot Configuration:** GPIO is configured to boot from flash.
 7. **JTAG Loading:** Firmware is loaded and executed the same as on-chip mode.
 
 ### 3. Flash Execute Mode
-Boots and executes directly from flash without JTAG loading. The most persistent mode.
+Boots and executes directly from flash without JTAG loading.
 
 1. **UART Cleanup:** Unbinds the driver and removes the existing overlay.
 2. **PL Reset & Programming:** Resets PL and loads the new bitstream.
@@ -264,13 +278,13 @@ To program the FPGA and run a firmware image remotely:
 python src/xheepRun.py \
   -o path/to/xheep_top.bit \
   -f path/to/firmware.elf  \
-  --memory on_chip
+   --linker on_chip
 ```
 
 **Argument Details:**
 * `-o, --overlay`: Path to the FPGA bitstream (`.bit`) [**required**]
 * `-f, --firmware`: Path to the compiled RISC-V `.elf` or `.bin` firmware [**required**]
-* `-m, --memory`: Execution mode: `on_chip` (default), `flash_load`, or `flash_exec`
+* `-l, --linker`: Execution mode: `on_chip` (default), `flash_load`, or `flash_exec`
 * `--verify`: Verify the loaded firmware against the source file after programming
 * `--force`: Force a full PL reset and UART reconfiguration even if the bitstream hasn't changed
 

@@ -1,5 +1,4 @@
 #!/bin/bash
-set -euo pipefail
 
 # Removes $HOME/.riscv and cleans up PATH entries in shell rc files
 # Also removes any legacy /opt installs from older versions of the script

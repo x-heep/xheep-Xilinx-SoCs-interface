@@ -1,4 +1,4 @@
-set -euo pipefail
+#!/bin/bash
 
 # Clone, patch, build and install OpenOCD v0.12.0
 # Skips the build entirely if OpenOCD is already installed at the expected commit

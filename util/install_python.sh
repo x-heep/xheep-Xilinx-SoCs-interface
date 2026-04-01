@@ -1,4 +1,4 @@
-set -euo pipefail
+#!/bin/bash
 
 # Install Python packages listed in util/python-requirements.txt,
 # in the `pynq-venv` skipping any package that is already installed

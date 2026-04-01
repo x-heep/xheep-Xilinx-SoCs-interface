@@ -1,5 +1,4 @@
 #!/bin/bash
-set -euo pipefail
 
 # Sync sw/device/ from the official x-heep repository
 # {https://github.com/x-heep/x-heep}.

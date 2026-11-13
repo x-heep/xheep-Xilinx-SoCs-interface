@@ -28,8 +28,14 @@ NOTEBOOK_DIR := /home/$(USER)/jupyter_notebooks/xheep
 LINKER    ?= on_chip
 OVERLAY   ?= xilinx_core_v_mini_mcu_wrapper.bit
 APP       ?= 
+JTAG_ADDR ?= 0xA4000000
+GPIO_ADDR ?= 0xA4020000
+SPI_ADDR  ?= 0xA4030000
+SPI_RANGE ?= 0x00010000
+UART_DEV  ?= /dev/ttyUL0
+UART_BAUD ?= 115200
 
-.PHONY: help install install-notebook uninstall uninstall-notebook run clean
+.PHONY: help install install-notebook uninstall uninstall-notebook run run-vpk180 clean
 
 # help target prints this file with comments as descriptions for each target
 help:
@@ -85,6 +91,22 @@ run:
 		exit 1; \
 	fi
 	@python3 src/xheepRun.py -o $(OVERLAY) -f $(APP) -l $(LINKER)
+
+## Run application on VPK180 through static AXI helper addresses
+## @param LINKER=on_chip                    Execution mode: on_chip, flash_load, flash_exec
+## @param APP=/path/to/application.elf      Path to X-HEEP ELF or BIN
+## @param JTAG_ADDR=0xA4000000              AXI JTAG base address
+## @param GPIO_ADDR=0xA4020000              AXI GPIO base address
+## @param SPI_ADDR=0xA4030000               AXI Quad SPI base address
+## @param SPI_RANGE=0x00010000              AXI Quad SPI address range
+## @param UART_DEV=/dev/ttyUL0              AXI UARTLite device
+## @param UART_BAUD=115200                  AXI UARTLite baud rate
+run-vpk180:
+	@if [ -z "$(APP)" ]; then \
+		echo "Error: set APP=/path/to/application.elf (or .bin)"; \
+		exit 1; \
+	fi
+	@python3 src/xheepRun_vpk180.py -f $(APP) -l $(LINKER) --jtag-addr $(JTAG_ADDR) --gpio-addr $(GPIO_ADDR) --spi-addr $(SPI_ADDR) --spi-range $(SPI_RANGE) --uart $(UART_DEV) --baud $(UART_BAUD)
 
 ## @section Cleanup
 
